@@ -1,0 +1,9 @@
+{
+  // Cloudflare Workers config — serves this folder as a static website.
+  // The project name becomes the URL: ishqknot.<your-subdomain>.workers.dev
+  "name": "ishqknot",
+  "compatibility_date": "2026-09-28",
+  "assets": {
+    "directory": "./"
+  }
+}

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ISHQ KNOT — Wedding Photography &amp; Films</title>
+  <meta name="description" content="ISHQ KNOT — wedding photography and films. Preserving emotions, elegance, and timeless memories through every frame.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="nav" id="nav">
+    <a href="#top" class="logo">ISHQ <span>KNOT</span></a>
+    <button class="nav-toggle" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span>
+    </button>
+    <nav class="nav-links">
+      <a href="#work">Work</a>
+      <a href="#about">About</a>
+      <a href="#packages">Packages</a>
+      <a href="#contact" class="nav-cta">Book a shoot</a>
+    </nav>
+  </header>
+
+  <main id="top">
+
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-slides">
+        <div class="hero-slide active" data-title="Forehead to Forehead">
+          <img src="images/couple-forehead.jpg" alt="Bride and groom touching foreheads in golden light" style="object-position: center 28%">
+        </div>
+        <div class="hero-slide" data-title="Walking Together">
+          <img src="images/walking-together.jpg" alt="Bride and groom walking hand in hand in traditional Kerala wedding attire" style="object-position: center 55%" loading="lazy">
+        </div>
+        <div class="hero-slide" data-title="Grand Entrance">
+          <img src="images/grand-entrance.jpg" alt="Bride and groom making their grand entrance through confetti" style="object-position: center 35%" loading="lazy">
+        </div>
+        <div class="hero-slide" data-title="Under the Veil">
+          <img src="images/couple-veil-white.jpg" alt="Bride and groom under the bride's veil" style="object-position: center 25%" loading="lazy">
+        </div>
+        <div class="hero-slide" data-title="The Bride">
+          <img src="images/the-bride.jpg" alt="Bride in a red saree among flowers" style="object-position: center 45%" loading="lazy">
+        </div>
+      </div>
+      <div class="hero-content">
+        <p class="hero-crumb">Wedding Photography &amp; Films</p>
+        <h1>We capture your <em>best moments.</em></h1>
+        <span class="hero-rule"></span>
+        <p class="hero-sub">Preserving emotions, elegance, and timeless memories through every frame. We travel wherever.</p>
+        <div class="hero-actions">
+          <a href="#work" class="btn btn-ink">View portfolio</a>
+          <a href="#packages" class="hero-link">See packages</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Portfolio -->
+    <section class="section" id="work">
+      <div class="section-head">
+        <p class="eyebrow">Selected work</p>
+        <h2>Portfolio</h2>
+      </div>
+
+      <div class="filters" role="tablist">
+        <button class="filter active" data-filter="all">All</button>
+        <button class="filter" data-filter="couples">Couples</button>
+        <button class="filter" data-filter="brides">Brides</button>
+        <button class="filter" data-filter="moments">Moments</button>
+        <button class="filter" data-filter="celebrations">Celebrations</button>
+        <button class="filter" data-filter="prewedding">Pre-Wedding</button>
+      </div>
+
+      <div class="gallery" id="gallery"><!-- filled by script.js --></div>
+      <div class="gallery-more"><button class="btn btn-outline" id="gallery-more">View more photos</button></div>
+    </section>
+
+    <!-- About -->
+    <section class="section about" id="about">
+      <div class="about-img">
+        <img src="images/pure-joy.jpg" alt="Bride and groom laughing together" loading="lazy">
+      </div>
+      <div class="about-text">
+        <p class="eyebrow">About us</p>
+        <h2>Hi, we're ISHQ KNOT.</h2>
+        <p>We capture your best moments — the nervous laugh before the vows, henna drying on the bride's hands, the whole family on the dance floor. A good wedding photograph doesn't just show what the day looked like; it holds how it felt.</p>
+        <p>From engagements and mehndi nights to the wedding day itself, we document every chapter of your story in photos and film. And wherever you're celebrating, we'll be there — we travel wherever.</p>
+        <div class="stats">
+          <div><strong>8</strong><span>Wedding packages</span></div>
+          <div><strong>1 week</strong><span>Full delivery</span></div>
+          <div><strong>25 km</strong><span>Free travel</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Packages -->
+    <section class="section" id="packages">
+      <div class="section-head">
+        <p class="eyebrow">✨ Wedding Collections ✨</p>
+        <h2>Our Packages</h2>
+        <p class="section-sub">Every package includes edited photos, a shareable online album and all final files on a pendrive.</p>
+      </div>
+      <div class="pkg-tabs" role="tablist">
+        <button class="pkg-tab active" data-pkg="all">All packages</button>
+        <button class="pkg-tab" data-pkg="photo">Photography</button>
+        <button class="pkg-tab" data-pkg="film">Photo + Video</button>
+      </div>
+      <div class="packages" id="packages-grid"><!-- filled by script.js --></div>
+    </section>
+
+    <!-- Terms & booking -->
+    <section class="terms">
+      <div class="terms-inner">
+        <div>
+          <p class="eyebrow">Booking &amp; payment</p>
+          <h2>How booking works</h2>
+          <ol class="pay-steps">
+            <li><strong>20%</strong><span>Advance</span><small>Confirms your date</small></li>
+            <li><strong>50%</strong><span>Event day</span><small>Paid on the wedding day</small></li>
+            <li><strong>30%</strong><span>Final</span><small>At final delivery</small></li>
+          </ol>
+        </div>
+        <div>
+          <p class="eyebrow">Terms &amp; conditions</p>
+          <ul class="terms-list">
+            <li>We require a minimum of 30 minutes for couple photos &amp; videos to create the best output.</li>
+            <li>Edited photos are shared within hours, and all soft-copy files are delivered within 1 week after the event.</li>
+            <li>Complimentary travel coverage up to 25 km; additional distance charges may apply.</li>
+            <li>Premium Experience: album printing begins after final photo selection by the client.</li>
+            <li>Drone, live streaming or additional crew are charged separately if requested.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Testimonial -->
+    <section class="quote">
+      <blockquote>
+        “At ISHQ KNOT, we don’t just capture weddings — we preserve emotions, connections, and memories that stay timeless forever.”
+        <cite>— With love, ISHQ KNOT</cite>
+      </blockquote>
+    </section>
+
+    <!-- Contact -->
+    <section class="section contact" id="contact">
+      <div class="contact-info">
+        <p class="eyebrow">Get in touch</p>
+        <h2>Let's create something together.</h2>
+        <p>Tell us your date, venue and the package you like — the form opens WhatsApp with your details filled in, ready to send.</p>
+        <ul class="contact-list">
+          <li><span>Phone</span><a href="tel:+917736301133">+91 77363 01133</a></li>
+          <li><span>WhatsApp</span><a href="https://wa.me/917736301133" target="_blank" rel="noopener">Chat with us</a></li>
+          <li><span>Instagram</span><a href="https://www.instagram.com/ishqknot/" target="_blank" rel="noopener">@ishqknot</a></li>
+          <li><span>Travel</span>We travel wherever ✈︎</li>
+        </ul>
+      </div>
+      <form class="contact-form" id="contact-form">
+        <div class="row">
+          <label>Your name<input type="text" name="name" required></label>
+          <label>Wedding date<input type="date" name="date"></label>
+        </div>
+        <label>Venue / location<input type="text" name="venue" placeholder="e.g. Kochi"></label>
+        <label>Package
+          <select name="package" id="package-select">
+            <option value="">Not sure yet</option>
+          </select>
+        </label>
+        <label>Message<textarea name="message" rows="4" placeholder="Anything else we should know?"></textarea></label>
+        <button type="submit" class="btn btn-dark">Send on WhatsApp</button>
+      </form>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>© <span id="year"></span> ISHQ KNOT</p>
+    <a href="https://www.instagram.com/ishqknot/" target="_blank" rel="noopener">Instagram @ishqknot</a>
+    <a href="#top">Back to top ↑</a>
+  </footer>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" aria-hidden="true">
+    <button class="lb-close" aria-label="Close">×</button>
+    <button class="lb-prev" aria-label="Previous">‹</button>
+    <figure>
+      <img id="lb-img" alt="">
+      <figcaption id="lb-caption"></figcaption>
+    </figure>
+    <button class="lb-next" aria-label="Next">›</button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
