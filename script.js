@@ -1,49 +1,26 @@
-// Portfolio photos — add more by dropping files in /images and listing them here.
+// Portfolio photos are managed from admin.html. /api/photos serves the saved list;
+// photos.json is the default list (and the fallback when the API isn't running).
 // `pos` (optional) sets which part of the photo shows in the cropped grid tile.
-const photos = [
-  { src: "images/grand-entrance.jpg",    title: "Grand Entrance",     category: "celebrations" },
-  { src: "images/couple-forehead.jpg",   title: "Forehead to Forehead", category: "couples" },
-  { src: "images/pottery-together.jpg",  title: "Made Together",      category: "prewedding", pos: "center 35%" },
-  { src: "images/the-bride.jpg",         title: "The Bride",          category: "brides" },
-  { src: "images/goodbyes.jpg",          title: "Goodbyes",           category: "moments", pos: "center 40%" },
-  { src: "images/clay-hands.jpg",        title: "Clay Hands",         category: "prewedding" },
-  { src: "images/through-the-veil.jpg",  title: "Through the Veil",   category: "couples" },
-  { src: "images/petal-shower.jpg",      title: "Petal Shower",       category: "celebrations" },
-  { src: "images/on-tiptoes.jpg",        title: "On Tiptoes",         category: "prewedding", pos: "center 70%" },
-  { src: "images/hand-in-hand.jpg",      title: "Hand in Hand",       category: "prewedding" },
-  { src: "images/heirloom-gold.jpg",     title: "Heirloom Gold",      category: "brides", pos: "center 60%" },
-  { src: "images/pure-joy.jpg",          title: "Pure Joy",           category: "moments", pos: "center 25%" },
-  { src: "images/couple-veil-white.jpg", title: "Under the Veil",     category: "couples" },
-  { src: "images/into-the-light.jpg",    title: "Into the Light",     category: "celebrations", pos: "center 70%" },
-  { src: "images/bride-stage.jpg",       title: "Stage Light",        category: "brides" },
-  { src: "images/close.jpg",             title: "Close",              category: "moments" },
-  { src: "images/couple-kiss.jpg",       title: "A Stolen Kiss",      category: "couples" },
-  { src: "images/bride-squad.jpg",       title: "Bride Squad",        category: "celebrations", pos: "center 60%" },
-  { src: "images/bridal-details.jpg",    title: "Bridal Details",     category: "brides" },
-  { src: "images/the-groom.jpg",         title: "The Groom",          category: "moments" },
-  { src: "images/walking-together.jpg",  title: "Walking Together",   category: "couples", pos: "center 60%" },
-  { src: "images/family.jpg",            title: "Family",             category: "celebrations", pos: "center 60%" },
-  { src: "images/sparkle.jpg",           title: "Sparkle",            category: "brides" },
-  { src: "images/little-blessings.jpg",  title: "Little Blessings",   category: "moments", pos: "center 55%" },
-  { src: "images/veiled-together.jpg",   title: "Veiled Together",    category: "couples" },
-  { src: "images/first-dance.jpg",       title: "First Dance",        category: "couples" },
-  { src: "images/just-married.jpg",      title: "Just Married",       category: "couples" },
-];
+let photos = [];
 
 const gallery = document.getElementById("gallery");
 
-// Build gallery
-photos.forEach((p, i) => {
-  const item = document.createElement("figure");
-  item.className = "gallery-item";
-  item.dataset.category = p.category;
-  item.dataset.index = i;
-  item.tabIndex = 0;
-  item.innerHTML = `
-    <img src="${p.src}" alt="${p.title}" loading="lazy"${p.pos ? ` style="object-position:${p.pos}"` : ""}>
-    <figcaption class="caption"><h4>${p.title}</h4><span>${p.category}</span></figcaption>`;
-  gallery.appendChild(item);
-});
+async function loadGallery() {
+  photos = await fetch("/api/photos").then(r => r.ok ? r.json() : Promise.reject())
+    .catch(() => fetch("photos.json").then(r => r.json()));
+  photos.forEach((p, i) => {
+    const item = document.createElement("figure");
+    item.className = "gallery-item";
+    item.dataset.category = p.category;
+    item.dataset.index = i;
+    item.tabIndex = 0;
+    item.innerHTML = `
+      <img src="${p.src}" alt="${p.title}" loading="lazy"${p.pos ? ` style="object-position:${p.pos}"` : ""}>
+      <figcaption class="caption"><h4>${p.title}</h4><span>${p.category}</span></figcaption>`;
+    gallery.appendChild(item);
+  });
+  renderGallery();
+}
 
 // Wedding packages — fill in `price` (e.g. "₹25,000"); empty shows "Price on request".
 const packages = [
@@ -161,7 +138,7 @@ moreBtn.addEventListener("click", () => {
   renderGallery();
   if (!expanded) document.getElementById("work").scrollIntoView();
 });
-renderGallery();
+loadGallery();
 
 // Lightbox
 const lb = document.getElementById("lightbox");
@@ -250,14 +227,21 @@ const io = new IntersectionObserver(entries => {
 }, { threshold: 0.15 });
 revealEls.forEach(el => io.observe(el));
 
-// Contact form → opens WhatsApp with the details filled in
+// Contact form → saves the enquiry to the Google Sheet CRM (see crm/README.md),
+// then opens WhatsApp with the details filled in
 const WHATSAPP = "917736301133";
+const CRM_URL = ""; // Apps Script web app URL ending in /exec
 document.getElementById("contact-form").addEventListener("submit", e => {
   e.preventDefault();
   const f = new FormData(e.target);
+  if (CRM_URL) {
+    fetch(CRM_URL, { method: "POST", mode: "no-cors", keepalive: true, body: new URLSearchParams(f) })
+      .catch(() => {}); // never block the WhatsApp hand-off
+  }
   const lines = [
     "Hi ISHQ KNOT! I'd like to enquire about a booking.",
     `Name: ${f.get("name")}`,
+    `Phone: ${f.get("phone")}`,
     f.get("date") && `Wedding date: ${f.get("date")}`,
     f.get("venue") && `Venue: ${f.get("venue")}`,
     `Package: ${f.get("package") || "Not sure yet"}`,

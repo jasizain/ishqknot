@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Photo Admin — ISHQ KNOT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5efe6; --surface: #fff; --text: #1c1b19; --muted: #6f6b64; --line: #e3dfd8;
+      --accent: #b08d57; --wine: #5c1119; --danger: #a3242f;
+      --serif: "Cormorant Garamond", Georgia, serif; --sans: "Inter", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--sans); font-weight: 300; background: var(--bg); color: var(--text); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+    img { display: block; max-width: 100%; }
+    button, input, select { font: inherit; color: inherit; }
+    [hidden] { display: none !important; }
+
+    .btn { padding: .7rem 1.3rem; border: 1px solid var(--text); background: transparent; font-size: .75rem;
+      letter-spacing: .15em; text-transform: uppercase; cursor: pointer; transition: background .2s, color .2s; }
+    .btn:hover { background: var(--text); color: #fff; }
+    .btn-dark { background: var(--wine); border-color: var(--wine); color: #fff; }
+    .btn-dark:hover { background: var(--accent); border-color: var(--accent); }
+    .btn:disabled { opacity: .45; cursor: default; pointer-events: none; }
+    .logo { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; letter-spacing: .08em; }
+    .logo span { color: var(--accent); }
+
+    /* Login */
+    .login { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
+    .login form { width: min(360px, 100%); background: var(--surface); padding: 2.2rem; border: 1px solid var(--line); display: grid; gap: 1rem; }
+    .login p { color: var(--muted); font-size: .9rem; }
+    .login input { padding: .8rem; border: 1px solid var(--line); background: var(--bg); }
+    .error { color: var(--danger); font-size: .85rem; min-height: 1.2em; }
+
+    /* Toolbar */
+    .bar { position: sticky; top: 0; z-index: 10; background: rgba(245, 239, 230, .95); backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--line); padding: .8rem 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: .8rem; }
+    .bar .logo { margin-right: auto; }
+    .status { font-size: .85rem; color: var(--muted); }
+    .status.dirty { color: var(--wine); font-weight: 500; }
+
+    main { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+    .intro { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+    .intro h1 { font-family: var(--serif); font-weight: 400; font-size: 2.2rem; line-height: 1.1; }
+    .intro p { color: var(--muted); font-size: .9rem; max-width: 52ch; }
+    .add { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+    .add select { padding: .65rem; border: 1px solid var(--line); background: var(--surface); }
+
+    .drop { border: 1.5px dashed var(--accent); padding: 1.2rem; text-align: center; color: var(--muted); font-size: .9rem; margin-bottom: 1.5rem; }
+    .drop.over { background: #fff8ec; color: var(--text); }
+
+    /* Photo cards */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; }
+    .card { background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; }
+    .thumb { position: relative; aspect-ratio: 4 / 5; overflow: hidden; background: var(--line); }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .num { position: absolute; top: .5rem; left: .5rem; background: rgba(20, 20, 19, .7); color: #fff; font-size: .75rem; padding: .15rem .5rem; }
+    .new { position: absolute; top: .5rem; right: .5rem; background: var(--accent); color: #fff; font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; padding: .15rem .5rem; }
+    .fields { padding: .8rem; display: grid; gap: .55rem; }
+    .fields label { display: grid; gap: .2rem; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .fields input[type=text], .fields select { padding: .5rem; border: 1px solid var(--line); background: var(--bg); font-size: .9rem; letter-spacing: 0; text-transform: none; color: var(--text); }
+    .fields input[type=range] { accent-color: var(--accent); }
+    .actions { display: flex; gap: .3rem; padding: 0 .8rem .8rem; margin-top: auto; }
+    .actions button { flex: 1; padding: .5rem 0; border: 1px solid var(--line); background: var(--bg); cursor: pointer; font-size: .8rem; }
+    .actions button:hover { border-color: var(--text); }
+    .actions .del { color: var(--danger); }
+    .actions .del:hover { border-color: var(--danger); background: var(--danger); color: #fff; }
+
+    .toast { position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%); background: var(--text); color: #fff;
+      padding: .7rem 1.2rem; font-size: .9rem; max-width: calc(100% - 2rem); opacity: 0; transition: opacity .25s; pointer-events: none; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <!-- Login -->
+  <section class="login" id="login">
+    <form id="login-form">
+      <div class="logo">ISHQ <span>KNOT</span></div>
+      <p>Photo admin. Enter the admin password to manage the portfolio.</p>
+      <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
+      <p class="error" id="login-error"></p>
+      <button class="btn btn-dark" type="submit">Log in</button>
+    </form>
+  </section>
+
+  <!-- Admin -->
+  <div id="admin" hidden>
+    <header class="bar">
+      <div class="logo">ISHQ <span>KNOT</span></div>
+      <span class="status" id="status"></span>
+      <a class="btn" href="/#work" target="_blank" rel="noopener">View site</a>
+      <button class="btn btn-dark" id="save" disabled>Save changes</button>
+    </header>
+
+    <main>
+      <div class="intro">
+        <div>
+          <h1>Portfolio photos</h1>
+          <p>Add, replace, reorder or remove photos, then press <strong>Save changes</strong>. Photos appear on the site in this order.</p>
+        </div>
+        <div class="add">
+          <select id="add-category" aria-label="Category for new photos"></select>
+          <label class="btn btn-dark">+ Add photos<input type="file" id="add-input" accept="image/*" multiple hidden></label>
+        </div>
+      </div>
+      <div class="drop" id="drop">Or drag &amp; drop photos here</div>
+      <div class="grid" id="grid"></div>
+    </main>
+  </div>
+
+  <input type="file" id="replace-input" accept="image/*" hidden>
+  <div class="toast" id="toast"></div>
+
+<script>
+const CATEGORIES = { couples: "Couples", brides: "Brides", moments: "Moments", celebrations: "Celebrations", prewedding: "Pre-Wedding" };
+const MAX_SIDE = 2400; // big phone photos are resized before upload
+
+let password = sessionStorage.getItem("adminPassword") || "";
+let photos = [];
+let dirty = false;
+let newSrcs = new Set();
+
+const $ = id => document.getElementById(id);
+const grid = $("grid");
+
+function api(path, opts = {}) {
+  return fetch(path, { ...opts, headers: { Authorization: `Bearer ${password}`, ...opts.headers } })
+    .then(async r => {
+      const data = await r.json().catch(() => ({}));
+      if (r.status === 401) logout();
+      if (!r.ok) throw new Error(data.error || `Request failed (${r.status})`);
+      return data;
+    });
+}
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+function setDirty(v) {
+  dirty = v;
+  $("save").disabled = !v;
+  $("status").textContent = v ? "Unsaved changes" : "All changes saved";
+  $("status").classList.toggle("dirty", v);
+}
+
+// ---------- Login ----------
+$("login-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  password = e.target.password.value;
+  $("login-error").textContent = "";
+  try {
+    await api("/api/login", { method: "POST" });
+    sessionStorage.setItem("adminPassword", password);
+    start();
+  } catch (err) {
+    $("login-error").textContent = err.message;
+  }
+});
+
+function logout() {
+  sessionStorage.removeItem("adminPassword");
+  $("admin").hidden = true;
+  $("login").hidden = false;
+  $("login-error").textContent = "Please log in again.";
+}
+
+async function start() {
+  $("login").hidden = true;
+  $("admin").hidden = false;
+  photos = await fetch("/api/photos").then(r => r.json());
+  newSrcs = new Set();
+  render();
+  setDirty(false);
+}
+
+// ---------- Render ----------
+const pct = pos => pos ? parseInt(pos.split(" ")[1]) : 50;
+const options = sel => Object.entries(CATEGORIES)
+  .map(([v, label]) => `<option value="${v}"${v === sel ? " selected" : ""}>${label}</option>`).join("");
+const escape = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function render() {
+  grid.innerHTML = photos.map((p, i) => `
+    <article class="card" data-i="${i}">
+      <div class="thumb">
+        <img src="${p.src}" alt="" loading="lazy" style="object-position:${p.pos || "center 50%"}">
+        <span class="num">${i + 1}</span>
+        ${newSrcs.has(p.src) ? '<span class="new">New</span>' : ""}
+      </div>
+      <div class="fields">
+        <label>Title<input type="text" data-field="title" value="${escape(p.title)}" maxlength="80"></label>
+        <label>Category<select data-field="category">${options(p.category)}</select></label>
+        <label>Crop (top ↔ bottom)<input type="range" data-field="pos" min="0" max="100" value="${pct(p.pos)}"></label>
+      </div>
+      <div class="actions">
+        <button data-act="up" title="Move earlier" ${i === 0 ? "disabled" : ""}>←</button>
+        <button data-act="down" title="Move later" ${i === photos.length - 1 ? "disabled" : ""}>→</button>
+        <button data-act="replace" title="Replace photo">Replace</button>
+        <button data-act="delete" class="del" title="Remove photo">Delete</button>
+      </div>
+    </article>`).join("");
+}
+
+grid.addEventListener("input", e => {
+  const card = e.target.closest(".card");
+  const field = e.target.dataset.field;
+  if (!card || !field) return;
+  const p = photos[card.dataset.i];
+  if (field === "pos") {
+    p.pos = `center ${e.target.value}%`;
+    card.querySelector(".thumb img").style.objectPosition = p.pos;
+  } else {
+    p[field] = e.target.value;
+  }
+  setDirty(true);
+});
+
+let replaceIndex = null;
+grid.addEventListener("click", e => {
+  const btn = e.target.closest("[data-act]");
+  if (!btn) return;
+  const i = +btn.closest(".card").dataset.i;
+  const act = btn.dataset.act;
+  if (act === "up" || act === "down") {
+    const j = act === "up" ? i - 1 : i + 1;
+    [photos[i], photos[j]] = [photos[j], photos[i]];
+  } else if (act === "delete") {
+    if (!confirm(`Remove "${photos[i].title}" from the portfolio?`)) return;
+    photos.splice(i, 1);
+  } else if (act === "replace") {
+    replaceIndex = i;
+    $("replace-input").click();
+    return;
+  }
+  render();
+  setDirty(true);
+});
+
+// ---------- Upload ----------
+// Resize to MAX_SIDE and re-encode as JPEG so phone photos upload fast and load fast on the site
+function shrink(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      const scale = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error("Could not read image")), "image/jpeg", 0.85);
+    };
+    img.onerror = () => reject(new Error(`Could not open ${file.name}`));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function uploadFile(file) {
+  const blob = await shrink(file);
+  const { src } = await api("/api/upload", { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: blob });
+  newSrcs.add(src);
+  return src;
+}
+
+const titleFrom = name => name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").replace(/\b\w/g, c => c.toUpperCase()).slice(0, 80);
+
+async function addFiles(files) {
+  files = [...files].filter(f => f.type.startsWith("image/"));
+  if (!files.length) return;
+  const category = $("add-category").value;
+  let done = 0;
+  for (const file of files) {
+    toast(`Uploading ${++done} of ${files.length}…`);
+    try {
+      const src = await uploadFile(file);
+      photos.unshift({ src, title: titleFrom(file.name), category });
+      render();
+      setDirty(true);
+    } catch (err) {
+      toast(err.message);
+      return;
+    }
+  }
+  toast(`${files.length} photo${files.length > 1 ? "s" : ""} added — press Save changes to publish`);
+}
+
+$("add-category").innerHTML = options("couples");
+$("add-input").addEventListener("change", e => { addFiles(e.target.files); e.target.value = ""; });
+
+$("replace-input").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file || replaceIndex === null) return;
+  toast("Uploading…");
+  try {
+    photos[replaceIndex].src = await uploadFile(file);
+    delete photos[replaceIndex].pos;
+    render();
+    setDirty(true);
+    toast("Photo replaced — press Save changes to publish");
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+const drop = $("drop");
+["dragenter", "dragover"].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+document.addEventListener("drop", e => { if (!$("admin").hidden) addFiles(e.dataTransfer.files); });
+
+// ---------- Save ----------
+$("save").addEventListener("click", async () => {
+  $("save").disabled = true;
+  $("status").textContent = "Saving…";
+  try {
+    photos = await api("/api/photos", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(photos),
+    });
+    newSrcs = new Set();
+    render();
+    setDirty(false);
+    toast("Saved — the website is updated");
+  } catch (err) {
+    setDirty(true);
+    toast(err.message);
+  }
+});
+
+window.addEventListener("beforeunload", e => { if (dirty) e.preventDefault(); });
+
+if (password) api("/api/login", { method: "POST" }).then(start).catch(() => {});
+</script>
+</body>
+</html>

@@ -3,7 +3,15 @@
   // The project name becomes the URL: ishqknot.<your-subdomain>.workers.dev
   "name": "ishqknot",
   "compatibility_date": "2026-09-28",
+  // Handles /api/* and /media/* for the photo admin (admin.html); everything else is static.
+  "main": "src/worker.js",
   "assets": {
-    "directory": "./"
-  }
+    "directory": "./",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/media/*"]
+  },
+  // Uploaded photos + the saved portfolio list. Create once: npx wrangler r2 bucket create ishqknot-photos
+  "r2_buckets": [
+    { "binding": "BUCKET", "bucket_name": "ishqknot-photos" }
+  ]
 }

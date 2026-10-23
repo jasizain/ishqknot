@@ -2,3 +2,5 @@
 .assetsignore
 wrangler.jsonc
 .DS_Store
+crm
+src

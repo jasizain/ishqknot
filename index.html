@@ -162,6 +162,7 @@
           <label>Your name<input type="text" name="name" required></label>
           <label>Wedding date<input type="date" name="date"></label>
         </div>
+        <label>Phone / WhatsApp<input type="tel" name="phone" autocomplete="tel" required></label>
         <label>Venue / location<input type="text" name="venue" placeholder="e.g. Kochi"></label>
         <label>Package
           <select name="package" id="package-select">
@@ -169,6 +170,7 @@
           </select>
         </label>
         <label>Message<textarea name="message" rows="4" placeholder="Anything else we should know?"></textarea></label>
+        <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px">
         <button type="submit" class="btn btn-dark">Send on WhatsApp</button>
       </form>
     </section>
