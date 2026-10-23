@@ -1,8 +1,9 @@
 // ISHQ KNOT Worker — serves the static site, plus a small API for the photo admin (admin.html).
-// The portfolio list lives in R2 as `photos.json`; until the admin saves once, the
-// default list in /photos.json (a static asset) is used. Uploaded photos live in R2 under media/.
+// Two photo lists: the portfolio (/api/photos) and the homepage cover slideshow (/api/hero).
+// Each lives in R2 under the same name as its default list (a static asset), which is
+// used until the admin saves once. Uploaded photos live in R2 under media/.
 
-const MANIFEST = "photos.json";
+const LISTS = { "/api/photos": "photos.json", "/api/hero": "hero.json" };
 const CATEGORIES = ["couples", "brides", "moments", "celebrations", "prewedding"];
 const IMAGE_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 const MAX_UPLOAD = 15 * 1024 * 1024;
@@ -13,8 +14,9 @@ export default {
     const path = url.pathname;
 
     try {
-      if (path === "/api/photos" && req.method === "GET") return getPhotos(req, env);
-      if (path === "/api/photos" && req.method === "PUT") return authed(req, env, () => savePhotos(req, env));
+      const list = LISTS[path];
+      if (list && req.method === "GET") return getPhotos(req, env, list);
+      if (list && req.method === "PUT") return authed(req, env, () => savePhotos(req, env, list));
       if (path === "/api/upload" && req.method === "POST") return authed(req, env, () => upload(req, env));
       if (path === "/api/login" && req.method === "POST") return authed(req, env, () => json({ ok: true }));
       if (path.startsWith("/media/") && req.method === "GET") return media(path.slice(1), env);
@@ -26,18 +28,18 @@ export default {
   },
 };
 
-async function loadPhotos(req, env) {
-  const obj = await env.BUCKET.get(MANIFEST);
+async function loadPhotos(req, env, list) {
+  const obj = await env.BUCKET.get(list);
   if (obj) return obj.json();
-  const res = await env.ASSETS.fetch(new URL("/photos.json", req.url));
+  const res = await env.ASSETS.fetch(new URL("/" + list, req.url));
   return res.json();
 }
 
-async function getPhotos(req, env) {
-  return json(await loadPhotos(req, env), 200, { "Cache-Control": "no-store" });
+async function getPhotos(req, env, list) {
+  return json(await loadPhotos(req, env, list), 200, { "Cache-Control": "no-store" });
 }
 
-async function savePhotos(req, env) {
+async function savePhotos(req, env, list) {
   const body = await req.json().catch(() => null);
   if (!Array.isArray(body)) return json({ error: "Expected a list of photos" }, 400);
 
@@ -45,20 +47,24 @@ async function savePhotos(req, env) {
   for (const p of body) {
     const src = String(p?.src || "");
     if (!/^(images\/[\w.-]+|\/media\/[\w.-]+)$/.test(src)) return json({ error: `Bad photo path: ${src}` }, 400);
-    if (!CATEGORIES.includes(p.category)) return json({ error: `Bad category: ${p.category}` }, 400);
     const title = String(p.title || "").replace(/[<>"]/g, "").trim().slice(0, 80) || "Untitled"; // title is put into HTML
-    const photo = { src, title, category: p.category };
+    const photo = { src, title };
+    if (list === "photos.json") { // cover photos have no category
+      if (!CATEGORIES.includes(p.category)) return json({ error: `Bad category: ${p.category}` }, 400);
+      photo.category = p.category;
+    }
     if (/^center \d{1,3}%$/.test(p.pos || "") && p.pos !== "center 50%") photo.pos = p.pos;
     photos.push(photo);
   }
 
-  // Delete uploaded files that are no longer in the list
-  const before = await loadPhotos(req, env);
-  const keep = new Set(photos.map(p => p.src));
+  // Delete uploaded files that are no longer in this list or the other one
+  const others = await Promise.all(Object.values(LISTS).filter(l => l !== list).map(l => loadPhotos(req, env, l)));
+  const keep = new Set([...photos, ...others.flat()].map(p => p.src));
+  const before = await loadPhotos(req, env, list);
   const removed = before.filter(p => p.src.startsWith("/media/") && !keep.has(p.src)).map(p => p.src.slice(1));
   if (removed.length) await env.BUCKET.delete(removed);
 
-  await env.BUCKET.put(MANIFEST, JSON.stringify(photos), { httpMetadata: { contentType: "application/json" } });
+  await env.BUCKET.put(list, JSON.stringify(photos), { httpMetadata: { contentType: "application/json" } });
   return json(photos);
 }
 

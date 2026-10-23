@@ -50,13 +50,20 @@
     .add { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
     .add select { padding: .65rem; border: 1px solid var(--line); background: var(--surface); }
 
+    .tabs { display: flex; gap: 1.6rem; border-bottom: 1px solid var(--line); margin-bottom: 1.5rem; }
+    .tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: .6rem 0; margin-bottom: -1px; cursor: pointer;
+      font-size: .8rem; letter-spacing: .15em; text-transform: uppercase; color: var(--muted); }
+    .tab.active { color: var(--text); border-color: var(--accent); }
+    .tab .count { color: var(--accent); margin-left: .3rem; }
+
     .drop { border: 1.5px dashed var(--accent); padding: 1.2rem; text-align: center; color: var(--muted); font-size: .9rem; margin-bottom: 1.5rem; }
     .drop.over { background: #fff8ec; color: var(--text); }
 
     /* Photo cards */
+    .grid.hero { --ratio: 3 / 4; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; }
     .card { background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; }
-    .thumb { position: relative; aspect-ratio: 4 / 5; overflow: hidden; background: var(--line); }
+    .thumb { position: relative; aspect-ratio: var(--ratio, 4 / 5); overflow: hidden; background: var(--line); }
     .thumb img { width: 100%; height: 100%; object-fit: cover; }
     .num { position: absolute; top: .5rem; left: .5rem; background: rgba(20, 20, 19, .7); color: #fff; font-size: .75rem; padding: .15rem .5rem; }
     .new { position: absolute; top: .5rem; right: .5rem; background: var(--accent); color: #fff; font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; padding: .15rem .5rem; }
@@ -98,10 +105,14 @@
     </header>
 
     <main>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="hero">Cover photos<span class="count" id="count-hero"></span></button>
+        <button class="tab" data-tab="portfolio">Portfolio<span class="count" id="count-portfolio"></span></button>
+      </nav>
       <div class="intro">
         <div>
-          <h1>Portfolio photos</h1>
-          <p>Add, replace, reorder or remove photos, then press <strong>Save changes</strong>. Photos appear on the site in this order.</p>
+          <h1 id="heading"></h1>
+          <p id="help"></p>
         </div>
         <div class="add">
           <select id="add-category" aria-label="Category for new photos"></select>
@@ -120,8 +131,19 @@
 const CATEGORIES = { couples: "Couples", brides: "Brides", moments: "Moments", celebrations: "Celebrations", prewedding: "Pre-Wedding" };
 const MAX_SIDE = 2400; // big phone photos are resized before upload
 
+// Two lists, one per tab. Cover photos are the homepage slideshow; they have no category.
+const TABS = {
+  hero: { api: "/api/hero", heading: "Cover photos",
+    help: "The big slideshow at the top of the homepage. Portrait photos look best. Add, replace, reorder or remove, then press <strong>Save changes</strong>." },
+  portfolio: { api: "/api/photos", heading: "Portfolio photos",
+    help: "The Portfolio gallery. Add, replace, reorder or remove photos, then press <strong>Save changes</strong>. Photos appear on the site in this order." },
+};
+
 let password = sessionStorage.getItem("adminPassword") || "";
-let photos = [];
+let tab = "hero";
+const lists = { hero: [], portfolio: [] };
+const changed = new Set(); // tabs with unsaved edits
+let photos = lists[tab];
 let dirty = false;
 let newSrcs = new Set();
 
@@ -147,6 +169,8 @@ function toast(msg) {
 }
 
 function setDirty(v) {
+  if (v) changed.add(tab); else changed.clear();
+  v = changed.size > 0;
   dirty = v;
   $("save").disabled = !v;
   $("status").textContent = v ? "Unsaved changes" : "All changes saved";
@@ -177,11 +201,24 @@ function logout() {
 async function start() {
   $("login").hidden = true;
   $("admin").hidden = false;
-  photos = await fetch("/api/photos").then(r => r.json());
+  const [hero, portfolio] = await Promise.all(Object.values(TABS).map(t => fetch(t.api).then(r => r.json())));
+  Object.assign(lists, { hero, portfolio });
   newSrcs = new Set();
-  render();
+  showTab(tab);
   setDirty(false);
 }
+
+function showTab(name) {
+  tab = name;
+  photos = lists[tab];
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+  $("heading").textContent = TABS[tab].heading;
+  $("help").innerHTML = TABS[tab].help;
+  $("add-category").hidden = tab === "hero";
+  grid.classList.toggle("hero", tab === "hero");
+  render();
+}
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => showTab(t.dataset.tab)));
 
 // ---------- Render ----------
 const pct = pos => pos ? parseInt(pos.split(" ")[1]) : 50;
@@ -190,6 +227,7 @@ const options = sel => Object.entries(CATEGORIES)
 const escape = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 function render() {
+  for (const name in lists) $(`count-${name}`).textContent = lists[name].length;
   grid.innerHTML = photos.map((p, i) => `
     <article class="card" data-i="${i}">
       <div class="thumb">
@@ -199,7 +237,7 @@ function render() {
       </div>
       <div class="fields">
         <label>Title<input type="text" data-field="title" value="${escape(p.title)}" maxlength="80"></label>
-        <label>Category<select data-field="category">${options(p.category)}</select></label>
+        ${tab === "portfolio" ? `<label>Category<select data-field="category">${options(p.category)}</select></label>` : ""}
         <label>Crop (top ↔ bottom)<input type="range" data-field="pos" min="0" max="100" value="${pct(p.pos)}"></label>
       </div>
       <div class="actions">
@@ -283,7 +321,7 @@ async function addFiles(files) {
     toast(`Uploading ${++done} of ${files.length}…`);
     try {
       const src = await uploadFile(file);
-      photos.unshift({ src, title: titleFrom(file.name), category });
+      photos.unshift({ src, title: titleFrom(file.name), ...(tab === "portfolio" && { category }) });
       render();
       setDirty(true);
     } catch (err) {
@@ -323,13 +361,16 @@ $("save").addEventListener("click", async () => {
   $("save").disabled = true;
   $("status").textContent = "Saving…";
   try {
-    photos = await api("/api/photos", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(photos),
-    });
+    for (const name of [...changed]) {
+      lists[name] = await api(TABS[name].api, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(lists[name]),
+      });
+      changed.delete(name);
+    }
     newSrcs = new Set();
-    render();
+    showTab(tab);
     setDirty(false);
     toast("Saved — the website is updated");
   } catch (err) {

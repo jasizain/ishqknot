@@ -188,10 +188,26 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowRight") step(1);
 });
 
-// Hero slideshow
-const heroSlides = document.querySelectorAll(".hero-slide");
+// Hero slideshow — cover photos are managed from admin.html (/api/hero, default hero.json).
+// The slides written in index.html show first; they're swapped if the saved list differs.
+const heroBox = document.querySelector(".hero-slides");
 let slideIdx = 0;
+
+fetch("/api/hero").then(r => r.ok ? r.json() : Promise.reject())
+  .then(list => {
+    const current = [...heroBox.querySelectorAll("img")].map(img => img.getAttribute("src") + img.style.objectPosition);
+    if (!list.length || list.map(h => h.src + (h.pos || "center 50%")).join() === current.join()) return;
+    heroBox.innerHTML = list.map((h, i) => `
+      <div class="hero-slide${i === 0 ? " active" : ""}" data-title="${h.title}">
+        <img src="${h.src}" alt="${h.title}" style="object-position: ${h.pos || "center 50%"}"${i ? ' loading="lazy"' : ""}>
+      </div>`).join("");
+    slideIdx = 0;
+  })
+  .catch(() => {});
+
 setInterval(() => {
+  const heroSlides = heroBox.querySelectorAll(".hero-slide");
+  if (heroSlides.length < 2) return;
   heroSlides[slideIdx].classList.remove("active");
   slideIdx = (slideIdx + 1) % heroSlides.length;
   heroSlides[slideIdx].classList.add("active");
