@@ -352,11 +352,11 @@ main > section { position: relative; z-index: 1; }
 @media (max-width: 860px) {
   .nav-toggle { display: block; z-index: 2; }
   .nav-links {
-    position: fixed; inset: 0; flex-direction: column; justify-content: center; gap: 1.6rem;
+    position: fixed; inset: 0; flex-direction: column; justify-content: center; gap: .7rem;
     background: var(--ground); color: var(--ink);
     transform: translateX(100%); transition: transform .45s ease;
   }
-  .nav-links a { font-family: var(--display); font-size: 2.4rem; }
+  .nav-links a { font-size: 1.25rem; padding-block: .5rem; }
   .nav.menu-open { color: var(--ink); }
   .nav.menu-open .nav-links { transform: none; }
   .nav.menu-open .nav-toggle span:first-child { top: 9px; transform: rotate(45deg); }
