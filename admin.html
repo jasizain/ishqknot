@@ -161,6 +161,7 @@
           <label>Password<input type="text" id="dl-password" minlength="8" autocomplete="off" required></label>
           <label>Photos<input type="file" id="dl-files" multiple required></label>
           <button class="btn btn-dark" type="submit" id="dl-create">Create and upload</button>
+          <p class="dl-state" style="grid-column: 1 / -1">AI face search is on for new uploads, so clients can find their own photos with a selfie.</p>
         </form>
         <div class="dl-progress" id="dl-progress" hidden>
           <p id="dl-progress-text"></p>
@@ -447,8 +448,10 @@ const UPLOAD_AT_ONCE = 3;
 const FILES_AT_ONCE = 3;
 const SAVE_EVERY = 25; // finished uploads join the client's list in batches
 const THUMB_SIDE = 1000;
+const FACE_SIDE = 2400; // face search reads a copy of each photo this big
 let deliveries = [];
 let uploading = false;
+let faceTurn = Promise.resolve(), faceMisses = 0;
 let addTo = null; // the link that "Add file" is adding to
 
 const sizeText = n => n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`;
@@ -491,7 +494,7 @@ function renderDeliveries() {
       <div class="dl-card-top">
         <div>
           <h2>${escape(d.client)}</h2>
-          <p class="dl-state">${closed ? `Closed. Files delete 7 days after ${dateText(d.date)}. Change the last date to reopen.` : `Open until ${dateText(d.date)}`} · ${d.count} file${d.count === 1 ? "" : "s"}, ${sizeText(d.total)}</p>
+          <p class="dl-state">${closed ? `Closed. Files delete 7 days after ${dateText(d.date)}. Change the last date to reopen.` : `Open until ${dateText(d.date)}`} · ${d.count} file${d.count === 1 ? "" : "s"}, ${sizeText(d.total)} · AI face search ${d.faces ? "on" : "off"}</p>
         </div>
         <label>Last date<input type="date" data-act="date" value="${d.date}"></label>
       </div>
@@ -499,6 +502,7 @@ function renderDeliveries() {
       <div class="actions">
         <button type="button" data-act="add">Add photos</button>
         <button type="button" data-act="manage">See files</button>
+        ${!d.faces && d.count ? '<button type="button" data-act="faces">Turn on AI face search</button>' : ""}
         <button type="button" data-act="password">New password</button>
         <button type="button" data-act="delete" class="del">Delete</button>
       </div>
@@ -530,30 +534,89 @@ async function uploadPart(id, up, part, blob) {
   }
 }
 
+function shrink(bitmap, side) {
+  const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+// Face codes for the client's "Find my photos". Photos are read one at a time, and a photo
+// that can't be read still uploads: it just won't turn up in a face search.
+async function faceCodes(bitmap) {
+  const { readFaces, packFaces } = await import("/face/faces.js");
+  const faces = await readFaces(shrink(bitmap, FACE_SIDE), { thorough: true });
+  return faces.length ? packFaces(faces) : "";
+}
+
+function queueFaces(bitmap) {
+  const turn = faceTurn.then(() => faceCodes(bitmap)).catch(err => {
+    console.error(err);
+    faceMisses++;
+    return "";
+  });
+  faceTurn = turn;
+  return turn;
+}
+
 // A preview made in the browser. Files it can't read (like RAW) stay downloads without a picture.
 async function previewOf(file) {
   if (!file.type.startsWith("image/")) return null;
   try {
     const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, THUMB_SIDE / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const preview = await new Promise(resolve => shrink(bitmap, THUMB_SIDE).toBlob(resolve, "image/jpeg", 0.8));
+    const faces = await queueFaces(bitmap);
     bitmap.close();
-    return await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.8));
+    return { preview, faces };
   } catch {
     return null;
   }
 }
 
+// Clients uploaded before face search get it from their previews
+async function turnOnFaces(id, btn) {
+  const photos = (await api(`/api/deliveries/${id}/files`)).map((f, i) => ({ ...f, i })).filter(f => f.photo);
+  let faces = {}, misses = 0, saved = deliveries.find(d => d.id === id);
+  const save = async () => {
+    saved = await api(`/api/deliveries/${id}/faces`, jsonBody("POST", { faces }));
+    faces = {};
+  };
+  uploading = true;
+  btn.disabled = true;
+  try {
+    for (let n = 0; n < photos.length; n++) {
+      btn.textContent = `Reading faces ${n + 1} of ${photos.length}`;
+      try {
+        const res = await fetch(`/api/deliveries/${id}/thumb/${photos[n].i}`, { headers: { Authorization: `Bearer ${password}` } });
+        const bitmap = await createImageBitmap(await res.blob());
+        const codes = await faceCodes(bitmap);
+        bitmap.close();
+        if (codes) faces[photos[n].ref] = codes;
+      } catch (err) {
+        console.error(err);
+        misses++;
+      }
+      if (Object.keys(faces).length >= SAVE_EVERY) await save();
+    }
+    await save();
+  } finally {
+    uploading = false;
+    deliveries = deliveries.map(d => d.id === id ? saved : d);
+    renderDeliveries();
+  }
+  toast(!saved.faces ? "No faces found in these photos" : misses ? `AI face search is on, but ${misses} photos couldn't be read` : "AI face search is on");
+}
+
 async function uploadBigFile(id, file, onBytes) {
   const up = await api(`/api/deliveries/${id}/files`, { method: "POST" });
-  const preview = await previewOf(file);
+  const read = await previewOf(file);
   const entry = { key: up.key, name: file.name, size: file.size };
-  if (preview) {
+  if (read) {
     const query = new URLSearchParams({ key: up.key });
-    entry.thumb = (await api(`/api/deliveries/${id}/thumb?${query}`, { method: "PUT", body: preview })).thumb;
+    entry.thumb = (await api(`/api/deliveries/${id}/thumb?${query}`, { method: "PUT", body: read.preview })).thumb;
+    if (read.faces) entry.faces = read.faces;
   }
   const count = Math.max(1, Math.ceil(file.size / up.partSize));
   const parts = new Array(count);
@@ -581,6 +644,7 @@ async function uploadAll(id, files) {
   const total = files.reduce((sum, f) => sum + f.size, 0);
   let sent = 0, done = 0, next = 0, failed = false, saving = Promise.resolve();
   const finished = [];
+  faceMisses = 0;
   uploading = true;
   $("dl-create").disabled = true;
   $("dl-progress").hidden = false;
@@ -612,7 +676,7 @@ async function uploadAll(id, files) {
     await save();
     const stopped = results.find(r => r.status === "rejected");
     if (stopped) throw stopped.reason;
-    toast("Upload finished");
+    toast(faceMisses ? `Upload finished, but ${faceMisses} photos won't appear in face search` : "Upload finished");
     return true;
   } catch (err) {
     toast(`Upload stopped after ${done} files: ${err.message}. Use Add photos for the rest.`);
@@ -669,6 +733,9 @@ $("dl-list").addEventListener("click", async e => {
       if (uploading) return toast("Wait for the upload to finish");
       addTo = id;
       $("dl-add-input").click();
+    } else if (btn.dataset.act === "faces") {
+      if (uploading) return toast("Wait for the upload to finish");
+      await turnOnFaces(id, btn);
     } else if (btn.dataset.act === "password") {
       if (!confirm(`Make a new password for ${d.client}? The old one will stop working.`)) return;
       const password = newPassword();

@@ -15,6 +15,7 @@ const PART_SIZE = 32 * 1024 * 1024; // a Worker request can't exceed 100 MB, so 
 const KEEP_DAYS = 7; // an expired link stays closed this long before its files are deleted, so it can be extended
 const HASH_ROUNDS = 10000; // low enough for the Workers Free 10 ms CPU limit
 const SESSION_MS = 24 * 60 * 60 * 1000;
+const MAX_FACE_TEXT = 8000; // 40 faces in one photo
 
 export default {
   async fetch(req, env) {
@@ -128,6 +129,11 @@ function saveDeliveries(env, all) {
 // Each client's file list is stored on its own, because one wedding can be a thousand photos
 const filesKey = id => `deliveries/${id}/files.json`;
 
+// Face codes for search are kept in small batches, not in one file, so that adding photos and
+// opening a gallery never have to read a whole wedding's faces. See face/faces.js.
+const facesKey = (id, n) => `deliveries/${id}/faces/${n}`;
+const refOf = key => key.split("/").pop();
+
 async function loadFiles(env, id) {
   const obj = await env.BUCKET.get(filesKey(id));
   return obj ? obj.json() : [];
@@ -139,13 +145,20 @@ function saveFiles(env, d, files) {
   return env.BUCKET.put(filesKey(d.id), JSON.stringify(files), { httpMetadata: { contentType: "application/json" } });
 }
 
+async function saveFaces(env, d, faces) {
+  if (!Object.keys(faces).length) return;
+  await env.BUCKET.put(facesKey(d.id, d.faceBatches || 0), JSON.stringify(faces), { httpMetadata: { contentType: "application/json" } });
+  d.faceBatches = (d.faceBatches || 0) + 1;
+}
+
 async function deleteKeys(env, keys) {
   for (let i = 0; i < keys.length; i += 1000) await env.BUCKET.delete(keys.slice(i, i + 1000));
 }
 
 async function deleteDelivery(env, d) {
   const files = await loadFiles(env, d.id);
-  await deleteKeys(env, [...files.flatMap(f => f.thumb ? [f.key, f.thumb] : [f.key]), filesKey(d.id)]);
+  const faces = Array.from({ length: d.faceBatches || 0 }, (_, n) => facesKey(d.id, n));
+  await deleteKeys(env, [...files.flatMap(f => f.thumb ? [f.key, f.thumb] : [f.key]), ...faces, filesKey(d.id)]);
 }
 
 async function clientPage(req, env) {
@@ -201,7 +214,7 @@ async function clientUnlock(req, env, url) {
 }
 
 async function publicDelivery(req, env, url) {
-  const m = url.pathname.match(/^\/api\/d\/([a-z0-9-]+)(?:\/(file|thumb)\/(\d+))?$/);
+  const m = url.pathname.match(/^\/api\/d\/([a-z0-9-]+)(?:\/(file|thumb|faces)\/(\d+))?$/);
   if (!m || (req.method !== "GET" && req.method !== "HEAD")) return json({ error: "Not found" }, 404);
   const [, id, action, index] = m;
   const d = (await loadDeliveries(env)).find(x => x.id === id);
@@ -209,9 +222,15 @@ async function publicDelivery(req, env, url) {
   if (Date.now() > d.expiresAt) return json({ error: "This link has closed", closed: true }, 410);
   if (!(await hasSession(req, d, env))) return json({ error: "Password needed" }, 401);
 
+  if (action === "faces") {
+    const batch = +index < (d.faceBatches || 0) && await env.BUCKET.get(facesKey(id, +index));
+    if (!batch) return new Response("Not found", { status: 404 });
+    return new Response(batch.body, { headers: { "Content-Type": "application/json", "Cache-Control": "private, no-store" } });
+  }
+
   const files = await loadFiles(env, id);
   if (!action) {
-    return json({ client: d.client, date: d.date, files: files.map(f => ({ name: f.name, size: f.size, photo: !!f.thumb })) }, 200, { "Cache-Control": "no-store" });
+    return json({ client: d.client, date: d.date, faces: d.faceBatches || 0, files: files.map(f => ({ name: f.name, size: f.size, photo: !!f.thumb, ref: refOf(f.key) })) }, 200, { "Cache-Control": "no-store" });
   }
   const file = files[+index];
   if (action === "file") return sendFile(req, env, file);
@@ -250,7 +269,7 @@ async function sendFile(req, env, file) {
   return new Response(obj.body, { status: 206, headers });
 }
 
-const adminView = d => ({ id: d.id, client: d.client, date: d.date, expiresAt: d.expiresAt, created: d.created, count: d.count || 0, total: d.total || 0 });
+const adminView = d => ({ id: d.id, client: d.client, date: d.date, expiresAt: d.expiresAt, created: d.created, count: d.count || 0, total: d.total || 0, faces: d.faceBatches || 0 });
 
 // Returns an error response if the password can't be used, otherwise null
 async function badPassword(password, all, d) {
@@ -267,7 +286,7 @@ async function setPassword(d, password) {
 }
 
 async function adminDelivery(req, env, url) {
-  const m = url.pathname.match(/^\/api\/deliveries(?:\/([a-z0-9-]+)(?:\/(files|parts|complete|thumb|add)(?:\/(\d+))?)?)?$/);
+  const m = url.pathname.match(/^\/api\/deliveries(?:\/([a-z0-9-]+)(?:\/(files|parts|complete|thumb|add|faces)(?:\/(\d+))?)?)?$/);
   if (!m) return json({ error: "Not found" }, 404);
   const [, id, action, index] = m;
   const all = await loadDeliveries(env);
@@ -315,7 +334,7 @@ async function adminDelivery(req, env, url) {
   }
 
   if (action === "files" && index === undefined && req.method === "GET") {
-    return json((await loadFiles(env, id)).map(f => ({ name: f.name, size: f.size })), 200, { "Cache-Control": "no-store" });
+    return json((await loadFiles(env, id)).map(f => ({ name: f.name, size: f.size, photo: !!f.thumb, ref: refOf(f.key) })), 200, { "Cache-Control": "no-store" });
   }
 
   if (action === "files" && index !== undefined && req.method === "DELETE") {
@@ -336,6 +355,21 @@ async function adminDelivery(req, env, url) {
   }
 
   const ours = key => String(key || "").startsWith(`deliveries/${id}/`) && !String(key).endsWith("files.json");
+
+  if (action === "thumb" && index !== undefined && req.method === "GET") {
+    const file = (await loadFiles(env, id))[+index];
+    const thumb = file?.thumb && await env.BUCKET.get(file.thumb);
+    if (!thumb) return new Response("Not found", { status: 404 });
+    return new Response(thumb.body, { headers: { "Content-Type": "image/jpeg", "Cache-Control": "no-store" } });
+  }
+
+  if (action === "faces" && req.method === "POST") { // AI face search for photos uploaded earlier
+    const { faces } = await req.json().catch(() => ({}));
+    if (!faces || typeof faces !== "object" || Object.values(faces).some(text => typeof text !== "string" || text.length > MAX_FACE_TEXT)) return json({ error: "Bad faces" }, 400);
+    await saveFaces(env, d, faces);
+    await saveDeliveries(env, all);
+    return json(adminView(d));
+  }
 
   if (action === "thumb" && req.method === "PUT") {
     const key = url.searchParams.get("key");
@@ -372,12 +406,15 @@ async function adminDelivery(req, env, url) {
     const body = await req.json().catch(() => ({}));
     const added = Array.isArray(body.files) ? body.files : [];
     if (added.some(f => !ours(f.key) || (f.thumb && !ours(f.thumb)))) return json({ error: "Bad upload" }, 400);
+    const faces = {};
     const files = await loadFiles(env, id);
     for (const f of added) {
+      if (typeof f.faces === "string" && f.faces.length <= MAX_FACE_TEXT) faces[refOf(f.key)] = f.faces;
       const entry = { key: f.key, name: String(f.name || "file").replace(/[\/\\<>"]/g, "").slice(0, 150), size: +f.size || 0 };
       if (f.thumb) entry.thumb = f.thumb;
       files.push(entry);
     }
+    await saveFaces(env, d, faces);
     await saveFiles(env, d, files);
     await saveDeliveries(env, all);
     return json(adminView(d));

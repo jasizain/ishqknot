@@ -26,8 +26,13 @@
     .dl-form .btn { justify-self: start; }
     .dl-error { color: #a3242f; min-height: 1.5em; font-size: var(--t-small); }
 
-    .dl-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 2rem; }
+    .dl-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.4rem; }
+    .dl-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: 2rem; }
+    .dl-outline { background: none; color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+    .dl-outline:hover { background: var(--ink); color: #fff; }
+    .dl-tool-btns { display: flex; flex-wrap: wrap; gap: .4rem 1.4rem; }
     .dl-text-btn { background: none; border: 0; padding: .4rem 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: .25em; text-decoration-thickness: 1px; }
+    .dl-find-note { margin-top: .6rem; }
     .dl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: .6rem; margin-top: 1.2rem; }
     .dl-photo { position: relative; aspect-ratio: 4 / 5; background: var(--tone); overflow: hidden; }
     .dl-photo button.open { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
@@ -49,6 +54,8 @@
     .dl-view img { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
     .dl-view-stage { position: relative; min-height: 0; }
     .dl-view-stage > img { position: absolute; inset: 0; }
+    .dl-view-stage > video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+    .dl-cam-note { padding: .8rem var(--gutter) 0; text-align: center; }
     .dl-view-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem .6rem; padding: .8rem var(--gutter); }
     .dl-step { background: none; border: 0; color: inherit; font: inherit; font-size: 1.6rem; width: 48px; height: 48px; cursor: pointer; }
     .dl-view .btn { background: #fff; color: var(--ink); }
@@ -79,9 +86,18 @@
     <section class="dl-wide" id="dl-ready" hidden>
       <h1 id="dl-client"></h1>
       <p id="dl-until"></p>
+      <div class="dl-actions" id="dl-actions" hidden>
+        <button class="btn" type="button" id="dl-save-all"></button>
+        <button class="btn dl-outline" type="button" id="dl-find" hidden>Find my photos with AI</button>
+        <input type="file" id="dl-selfie" accept="image/*" hidden>
+      </div>
+      <p class="dl-note dl-find-note" id="dl-find-note" hidden></p>
       <div class="dl-tools" id="dl-tools">
         <span id="dl-count"></span>
-        <button class="dl-text-btn" type="button" id="dl-all">Select all</button>
+        <span class="dl-tool-btns">
+          <button class="dl-text-btn" type="button" id="dl-everyone" hidden>Show all photos</button>
+          <button class="dl-text-btn" type="button" id="dl-all">Select all</button>
+        </span>
       </div>
       <div class="dl-grid" id="dl-grid"></div>
       <ul class="dl-files" id="dl-files"></ul>
@@ -99,6 +115,16 @@
 
   <footer class="dl-foot">ISHQ KNOT</footer>
 
+  <div class="dl-view" id="dl-cam" hidden style="grid-template-rows: 1fr auto auto">
+    <div class="dl-view-stage"><video id="dl-cam-video" autoplay playsinline muted></video></div>
+    <p class="dl-cam-note" id="dl-cam-note"></p>
+    <div class="dl-view-bar">
+      <button class="dl-text-btn" type="button" id="dl-cam-close">Close</button>
+      <button class="btn" type="button" id="dl-cam-take" hidden>Take photo</button>
+      <button class="dl-text-btn" type="button" id="dl-cam-pick">Choose a photo</button>
+    </div>
+  </div>
+
   <div class="dl-view" id="dl-view" hidden>
     <div class="dl-view-stage"><img id="dl-view-img" alt=""></div>
     <div class="dl-view-bar">
@@ -114,11 +140,21 @@ const $ = id => document.getElementById(id);
 const id = location.pathname.startsWith("/d/") ? location.pathname.split("/")[2] : "";
 const api = `/api/d/${id}`;
 const DOWNLOAD_GAP = 900; // browsers drop downloads that start at the same moment
+const SAVE_AT_ONCE = 3;
+const SAVE_TRIES = 3;
+const MANY_FILES = 20; // above this, phones are warned before saving one by one
 
 const size = n => n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`;
 const longDate = d => new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
 
-let photos = []; // the photo files, each keeping its index in the full list
+const SELFIE_SIDE = 1200;
+const FACE_HELP = "Use your camera or choose a clear photo of your face. It stays on your device and is never uploaded.";
+
+let allFiles = []; // everything for this client, each keeping its index in the full list
+let allPhotos = []; // the photo files
+let photos = []; // the ones on screen: all of them, or the ones a face search found
+let faceBatches = 0, faceCodes = null;
+let camera = null; // the live video while the camera window is open
 const picked = new Set();
 let viewing = 0;
 
@@ -135,20 +171,21 @@ function element(tag, props, ...children) {
 function updatePicked() {
   document.querySelectorAll(".dl-photo").forEach(card => card.classList.toggle("picked", picked.has(+card.dataset.i)));
   $("dl-bar").hidden = !picked.size;
+  $("dl-get").hidden = !picked.size;
   $("dl-picked").textContent = `${picked.size} selected`;
-  $("dl-all").textContent = picked.size === photos.length ? "Clear" : "Select all";
+  $("dl-all").textContent = allPicked() ? "Clear" : "Select all";
 }
 
-function showGallery(d) {
-  photos = d.files.map((f, i) => ({ ...f, i })).filter(f => f.photo);
-  const others = d.files.map((f, i) => ({ ...f, i })).filter(f => !f.photo);
-  $("dl-client").textContent = d.client;
-  $("dl-until").textContent = d.files.length
-    ? `Choose the photos you love and download them by ${longDate(d.date)}. After that this link closes.`
-    : "Your photos are still being added. Please check again soon.";
-  $("dl-tools").hidden = !photos.length;
-  $("dl-count").textContent = `${photos.length} photo${photos.length === 1 ? "" : "s"}`;
+function allPicked() {
+  return photos.length > 0 && photos.every(p => picked.has(p.i));
+}
 
+function showPhotos(list) {
+  photos = list;
+  $("dl-count").textContent = `${photos.length} photo${photos.length === 1 ? "" : "s"}`;
+  $("dl-everyone").hidden = photos === allPhotos;
+  $("dl-files").hidden = photos !== allPhotos;
+  saveLabel();
   $("dl-grid").replaceChildren(...photos.map((p, n) => {
     const card = element("div", { className: "dl-photo" },
       element("button", { className: "open", type: "button", ariaLabel: `View ${p.name}`, onclick: () => openView(n) },
@@ -160,11 +197,208 @@ function showGallery(d) {
     card.dataset.i = p.i;
     return card;
   }));
+  updatePicked();
+}
+
+// "Download all" saves what is on screen: everything, or the photos a face search found
+const onScreen = () => photos === allPhotos ? allFiles : photos;
+
+function saveLabel() {
+  const total = onScreen().reduce((sum, f) => sum + f.size, 0);
+  $("dl-save-all").textContent = `${photos === allPhotos ? "Download all" : "Download these"} (${size(total)})`;
+}
+
+function saveStatus(text) {
+  $("dl-bar").hidden = false;
+  $("dl-picked").textContent = text;
+}
+
+// Two cameras can both make IMG_0001.JPG, and one must not overwrite the other in a folder
+function folderNames(list) {
+  const used = new Set();
+  return list.map(({ name }) => {
+    const dot = name.lastIndexOf(".");
+    const [stem, ending] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
+    let saved = name;
+    for (let n = 2; used.has(saved.toLowerCase()); n++) saved = `${stem} (${n})${ending}`;
+    used.add(saved.toLowerCase());
+    return saved;
+  });
+}
+
+async function saveInto(folder, file, name) {
+  const existing = await folder.getFileHandle(name).catch(() => null);
+  if (existing && (await existing.getFile()).size === file.size) return; // done on an earlier try
+  const res = await fetch(`${api}/file/${file.i}`);
+  if (!res.ok) throw new Error("Download failed");
+  const handle = await folder.getFileHandle(name, { create: true });
+  await res.body.pipeTo(await handle.createWritable()); // only appears in the folder once complete
+}
+
+// Chrome and Edge on a computer can write straight into a folder the client picks. A wedding
+// can be 16 GB, and this way a broken download continues instead of starting again.
+async function saveToFolder(folder, list) {
+  const names = folderNames(list);
+  let next = 0, done = 0, failed = 0;
+  const worker = async () => {
+    while (next < list.length) {
+      const n = next++;
+      for (let tries = SAVE_TRIES; tries > 0; tries--) {
+        try {
+          await saveInto(folder, list[n], names[n]);
+          done++;
+          break;
+        } catch (err) {
+          console.error(err);
+          if (tries === 1) failed++;
+        }
+      }
+      saveStatus(`Saving ${done + failed} of ${list.length}`);
+    }
+  };
+  saveStatus(`Saving 0 of ${list.length}`);
+  await Promise.all(Array.from({ length: Math.min(list.length, SAVE_AT_ONCE) }, worker));
+  saveStatus(failed
+    ? `Saved ${done} of ${list.length}. Press download again and choose the same folder to get the rest.`
+    : `All ${list.length} saved`);
+}
+
+async function saveOneByOne(list) {
+  for (let n = 0; n < list.length; n++) {
+    saveStatus(`Downloading ${n + 1} of ${list.length}`);
+    element("a", { href: `${api}/file/${list[n].i}`, download: "" }).click();
+    await new Promise(r => setTimeout(r, DOWNLOAD_GAP));
+  }
+  saveStatus(`${list.length} downloads started`);
+}
+
+async function saveFiles(list) {
+  let folder = null;
+  if (window.showDirectoryPicker && list.length > 1) {
+    try {
+      folder = await showDirectoryPicker({ mode: "readwrite", startIn: "downloads" });
+    } catch (err) {
+      if (err.name === "AbortError") return; // closed the folder window
+    }
+  }
+  if (!folder && list.length > MANY_FILES && !confirm(`This device saves files one at a time, so ${list.length} files will take a while. For the whole wedding, a computer with Chrome is best. Continue?`)) return;
+  $("dl-save-all").disabled = $("dl-get").disabled = true;
+  try {
+    await (folder ? saveToFolder(folder, list) : saveOneByOne(list));
+  } catch (err) {
+    console.error(err);
+    saveStatus("The download stopped. Please try again.");
+  } finally {
+    $("dl-save-all").disabled = $("dl-get").disabled = false;
+  }
+}
+
+function faceNote(text) {
+  $("dl-find-note").textContent = text;
+  $("dl-find-note").hidden = false;
+}
+
+async function loadFaceCodes() {
+  const batches = await Promise.all(Array.from({ length: faceBatches }, async (_, n) => {
+    const res = await fetch(`${api}/faces/${n}`);
+    if (!res.ok) throw new Error("Could not load faces");
+    return res.json();
+  }));
+  return Object.assign({}, ...batches);
+}
+
+// The closest match to this face in each photo
+function closeness(me, codes, tools) {
+  const best = new Map();
+  for (const p of allPhotos) {
+    if (codes[p.ref]) best.set(p, Math.min(...tools.unpackFaces(codes[p.ref]).map(face => tools.distance(face, me))));
+  }
+  return best;
+}
+
+function closeCamera() {
+  camera?.getTracks().forEach(track => track.stop());
+  camera = null;
+  $("dl-cam-video").srcObject = null;
+  $("dl-cam").hidden = true;
+}
+
+async function openCamera() {
+  $("dl-cam").hidden = false;
+  $("dl-cam-take").hidden = true;
+  $("dl-cam-note").textContent = "Starting the camera…";
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 } }, audio: false });
+    if ($("dl-cam").hidden) return stream.getTracks().forEach(track => track.stop()); // closed while it started
+    camera = stream;
+    $("dl-cam-video").srcObject = camera;
+    await $("dl-cam-video").play();
+    $("dl-cam-note").textContent = "Look at the camera in good light.";
+    $("dl-cam-take").hidden = false;
+  } catch (err) {
+    console.error(err);
+    $("dl-cam-note").textContent = "We can't use the camera here. Choose a photo instead.";
+  }
+}
+
+function takePhoto() {
+  const video = $("dl-cam-video");
+  const frame = element("canvas", { width: video.videoWidth, height: video.videoHeight });
+  frame.getContext("2d").drawImage(video, 0, 0);
+  closeCamera();
+  findMe(frame);
+}
+
+// Takes a chosen file or a camera picture
+async function findMe(source) {
+  $("dl-find").disabled = true;
+  faceNote("Looking for your photos…");
+  try {
+    const tools = await import("/face/faces.js");
+    const bitmap = await createImageBitmap(source);
+    const scale = Math.min(1, SELFIE_SIDE / Math.max(bitmap.width, bitmap.height));
+    const canvas = element("canvas", { width: Math.round(bitmap.width * scale), height: Math.round(bitmap.height * scale) });
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const [me] = await tools.readFaces(canvas);
+    if (!me) return faceNote("We couldn't see a face in that photo. Try a clear, bright photo of your face.");
+
+    faceCodes ??= await loadFaceCodes();
+    const best = closeness(me, faceCodes, tools);
+    const within = limit => allPhotos.filter(p => best.get(p) < limit);
+    const sure = within(tools.SAME_PERSON);
+    const found = sure.length ? sure : within(tools.MAYBE_SAME);
+    if (!found.length) return faceNote("We couldn't find you. Try another clear photo of your face, or look through all the photos.");
+    showPhotos(found);
+    faceNote(sure.length
+      ? "These are the photos we found of you. Some may be missing, so check all the photos too."
+      : "We aren't sure, but these might be you.");
+  } catch (err) {
+    console.error(err);
+    faceNote("Face search didn't work on this device. Please look through all the photos.");
+  } finally {
+    $("dl-find").disabled = false;
+  }
+}
+
+function showGallery(d) {
+  allFiles = d.files.map((f, i) => ({ ...f, i }));
+  allPhotos = allFiles.filter(f => f.photo);
+  faceBatches = d.faces;
+  const others = allFiles.filter(f => !f.photo);
+  $("dl-client").textContent = d.client;
+  $("dl-until").textContent = d.files.length
+    ? `Choose the photos you love and download them by ${longDate(d.date)}. After that this link closes.`
+    : "Your photos are still being added. Please check again soon.";
+  $("dl-actions").hidden = !allFiles.length;
+  $("dl-tools").hidden = !allPhotos.length;
+  $("dl-find").hidden = !faceBatches;
+  if (faceBatches) faceNote(FACE_HELP);
+  showPhotos(allPhotos);
 
   $("dl-files").replaceChildren(...others.map(f => element("li", {},
     element("div", { className: "dl-name", textContent: f.name }, element("small", { textContent: size(f.size) })),
     element("a", { className: "btn", href: `${api}/file/${f.i}`, textContent: "Download" }))));
-  updatePicked();
   show("ready");
 }
 
@@ -181,6 +415,7 @@ $("dl-prev").addEventListener("click", () => openView(viewing - 1));
 $("dl-next").addEventListener("click", () => openView(viewing + 1));
 $("dl-view-close").addEventListener("click", () => $("dl-view").hidden = true);
 document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeCamera();
   if ($("dl-view").hidden) return;
   if (e.key === "Escape") $("dl-view").hidden = true;
   if (e.key === "ArrowLeft") openView(viewing - 1);
@@ -188,22 +423,30 @@ document.addEventListener("keydown", e => {
 });
 
 $("dl-all").addEventListener("click", () => {
-  if (picked.size === photos.length) picked.clear();
-  else photos.forEach(p => picked.add(p.i));
+  const clear = allPicked();
+  photos.forEach(p => clear ? picked.delete(p.i) : picked.add(p.i));
   updatePicked();
 });
 
-$("dl-get").addEventListener("click", async () => {
-  const list = [...picked];
-  $("dl-get").disabled = true;
-  for (let n = 0; n < list.length; n++) {
-    $("dl-get").textContent = `Downloading ${n + 1} of ${list.length}`;
-    element("a", { href: `${api}/file/${list[n]}`, download: "" }).click();
-    await new Promise(r => setTimeout(r, DOWNLOAD_GAP));
-  }
-  $("dl-get").disabled = false;
-  $("dl-get").textContent = "Download";
+$("dl-find").addEventListener("click", openCamera);
+$("dl-cam-take").addEventListener("click", takePhoto);
+$("dl-cam-close").addEventListener("click", closeCamera);
+$("dl-cam-pick").addEventListener("click", () => {
+  closeCamera();
+  $("dl-selfie").click();
 });
+$("dl-selfie").addEventListener("change", e => {
+  const [file] = e.target.files;
+  e.target.value = "";
+  if (file) findMe(file);
+});
+$("dl-everyone").addEventListener("click", () => {
+  showPhotos(allPhotos);
+  faceNote(FACE_HELP);
+});
+
+$("dl-get").addEventListener("click", () => saveFiles(allFiles.filter(f => picked.has(f.i))));
+$("dl-save-all").addEventListener("click", () => saveFiles(onScreen()));
 
 async function load() {
   if (!id) return show("lock");
