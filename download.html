@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Client Photos — ISHQ KNOT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500&family=Italiana&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css?v=22">
+  <style>
+    [hidden] { display: none !important; }
+    body { min-height: 100svh; display: flex; flex-direction: column; background: var(--ground); }
+    .dl-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.4rem var(--gutter); font-family: var(--display); font-size: 1.5rem; }
+    .dl-back { font-family: var(--text); font-size: var(--t-small); padding: .6rem 0; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .25em; white-space: nowrap; }
+    .dl-main { flex: 1; display: grid; place-items: center; padding: 2rem var(--gutter) 4rem; }
+    .dl-box { width: min(100%, 38rem); }
+    .dl-wide { width: 100%; align-self: start; }
+    .dl-box h1, .dl-wide h1 { font-family: var(--display); font-size: clamp(2.4rem, 7vw, 4rem); font-weight: 400; line-height: 1.05; }
+    .dl-box > p, .dl-wide > p { margin-top: 1rem; max-width: 46ch; }
+    .dl-form { margin-top: 2rem; display: grid; gap: 1rem; }
+    .dl-form label { display: grid; gap: .3rem; color: var(--muted); font-size: var(--t-small); }
+    .dl-form input { font: inherit; font-size: var(--t-body); color: var(--ink); padding: .6rem 0; border: 0; border-bottom: 1px solid var(--muted); background: none; border-radius: 0; }
+    .dl-form input:focus { outline: 0; border-bottom: 2px solid var(--ink); padding-bottom: calc(.6rem - 1px); }
+    .dl-form .btn { justify-self: start; }
+    .dl-error { color: #a3242f; min-height: 1.5em; font-size: var(--t-small); }
+
+    .dl-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 2rem; }
+    .dl-text-btn { background: none; border: 0; padding: .4rem 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: .25em; text-decoration-thickness: 1px; }
+    .dl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: .6rem; margin-top: 1.2rem; }
+    .dl-photo { position: relative; aspect-ratio: 4 / 5; background: var(--tone); overflow: hidden; }
+    .dl-photo button.open { display: block; width: 100%; height: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
+    .dl-photo img { width: 100%; height: 100%; object-fit: cover; }
+    .dl-pick { position: absolute; top: .4rem; right: .4rem; width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: none; cursor: pointer; }
+    .dl-pick span { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; background: rgba(0, 0, 0, .35); color: transparent; display: grid; place-items: center; font-size: .9rem; line-height: 1; }
+    .dl-photo.picked .dl-pick span { background: #fff; color: var(--ink); }
+    .dl-photo.picked img { opacity: .75; }
+    .dl-files { list-style: none; margin-top: 2rem; }
+    .dl-files li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 0; border-top: 1px solid var(--tone); }
+    .dl-name { min-width: 0; overflow-wrap: anywhere; }
+    .dl-name small { display: block; color: var(--muted); font-size: var(--t-small); }
+    .dl-files .btn { flex: none; }
+    .dl-note { color: var(--muted); font-size: var(--t-small); }
+
+    .dl-bar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 1.5rem calc(var(--gutter) * -1) 0; padding: .8rem var(--gutter); background: var(--ground); border-top: 1px solid var(--tone); }
+
+    .dl-view { position: fixed; inset: 0; z-index: 20; background: #0d0d0d; color: #fff; display: grid; grid-template-rows: 1fr auto; }
+    .dl-view img { width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+    .dl-view-stage { position: relative; min-height: 0; }
+    .dl-view-stage > img { position: absolute; inset: 0; }
+    .dl-view-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem .6rem; padding: .8rem var(--gutter); }
+    .dl-step { background: none; border: 0; color: inherit; font: inherit; font-size: 1.6rem; width: 48px; height: 48px; cursor: pointer; }
+    .dl-view .btn { background: #fff; color: var(--ink); }
+    .dl-foot { background: var(--ink); color: var(--ground); padding: 1.6rem var(--gutter); text-align: center; font-family: var(--display); font-size: 1.5rem; }
+    @media (max-width: 620px) {
+      .dl-grid { grid-template-columns: repeat(2, 1fr); gap: .35rem; }
+      .dl-files li { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <header class="dl-top">
+    <a href="/">ISHQ KNOT</a>
+    <a class="dl-back" href="/">← Back to website</a>
+  </header>
+
+  <main class="dl-main">
+    <section class="dl-box" id="dl-lock" hidden>
+      <h1>Client photos</h1>
+      <p>Enter the password we sent you to see your photos.</p>
+      <form class="dl-form" id="dl-form">
+        <label>Password<input type="password" id="dl-password" autocomplete="off" required></label>
+        <p class="dl-error" id="dl-error"></p>
+        <button class="btn" type="submit">View my photos</button>
+      </form>
+    </section>
+
+    <section class="dl-wide" id="dl-ready" hidden>
+      <h1 id="dl-client"></h1>
+      <p id="dl-until"></p>
+      <div class="dl-tools" id="dl-tools">
+        <span id="dl-count"></span>
+        <button class="dl-text-btn" type="button" id="dl-all">Select all</button>
+      </div>
+      <div class="dl-grid" id="dl-grid"></div>
+      <ul class="dl-files" id="dl-files"></ul>
+      <div class="dl-bar" id="dl-bar" hidden>
+        <span id="dl-picked"></span>
+        <button class="btn" type="button" id="dl-get">Download</button>
+      </div>
+    </section>
+
+    <section class="dl-box" id="dl-closed" hidden>
+      <h1>This link has closed</h1>
+      <p>Message us on <a href="https://wa.me/917736301133" style="text-decoration: underline">WhatsApp</a> and we'll help you.</p>
+    </section>
+  </main>
+
+  <footer class="dl-foot">ISHQ KNOT</footer>
+
+  <div class="dl-view" id="dl-view" hidden>
+    <div class="dl-view-stage"><img id="dl-view-img" alt=""></div>
+    <div class="dl-view-bar">
+      <button class="dl-step" type="button" id="dl-prev" aria-label="Previous">‹</button>
+      <a class="btn" id="dl-view-get">Download</a>
+      <button class="dl-text-btn" type="button" id="dl-view-close">Close</button>
+      <button class="dl-step" type="button" id="dl-next" aria-label="Next">›</button>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const id = location.pathname.startsWith("/d/") ? location.pathname.split("/")[2] : "";
+const api = `/api/d/${id}`;
+const DOWNLOAD_GAP = 900; // browsers drop downloads that start at the same moment
+
+const size = n => n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`;
+const longDate = d => new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
+
+let photos = []; // the photo files, each keeping its index in the full list
+const picked = new Set();
+let viewing = 0;
+
+function show(name) {
+  ["lock", "ready", "closed"].forEach(s => $(`dl-${s}`).hidden = s !== name);
+}
+
+function element(tag, props, ...children) {
+  const el = Object.assign(document.createElement(tag), props);
+  el.append(...children);
+  return el;
+}
+
+function updatePicked() {
+  document.querySelectorAll(".dl-photo").forEach(card => card.classList.toggle("picked", picked.has(+card.dataset.i)));
+  $("dl-bar").hidden = !picked.size;
+  $("dl-picked").textContent = `${picked.size} selected`;
+  $("dl-all").textContent = picked.size === photos.length ? "Clear" : "Select all";
+}
+
+function showGallery(d) {
+  photos = d.files.map((f, i) => ({ ...f, i })).filter(f => f.photo);
+  const others = d.files.map((f, i) => ({ ...f, i })).filter(f => !f.photo);
+  $("dl-client").textContent = d.client;
+  $("dl-until").textContent = d.files.length
+    ? `Choose the photos you love and download them by ${longDate(d.date)}. After that this link closes.`
+    : "Your photos are still being added. Please check again soon.";
+  $("dl-tools").hidden = !photos.length;
+  $("dl-count").textContent = `${photos.length} photo${photos.length === 1 ? "" : "s"}`;
+
+  $("dl-grid").replaceChildren(...photos.map((p, n) => {
+    const card = element("div", { className: "dl-photo" },
+      element("button", { className: "open", type: "button", ariaLabel: `View ${p.name}`, onclick: () => openView(n) },
+        element("img", { src: `${api}/thumb/${p.i}`, alt: "", loading: "lazy" })),
+      element("button", { className: "dl-pick", type: "button", ariaLabel: `Select ${p.name}`, onclick: () => {
+        picked.has(p.i) ? picked.delete(p.i) : picked.add(p.i);
+        updatePicked();
+      } }, element("span", { textContent: "✓" })));
+    card.dataset.i = p.i;
+    return card;
+  }));
+
+  $("dl-files").replaceChildren(...others.map(f => element("li", {},
+    element("div", { className: "dl-name", textContent: f.name }, element("small", { textContent: size(f.size) })),
+    element("a", { className: "btn", href: `${api}/file/${f.i}`, textContent: "Download" }))));
+  updatePicked();
+  show("ready");
+}
+
+function openView(n) {
+  viewing = (n + photos.length) % photos.length;
+  const p = photos[viewing];
+  $("dl-view-img").src = `${api}/thumb/${p.i}`;
+  $("dl-view-get").href = `${api}/file/${p.i}`;
+  $("dl-view-get").textContent = `Download (${size(p.size)})`;
+  $("dl-view").hidden = false;
+}
+
+$("dl-prev").addEventListener("click", () => openView(viewing - 1));
+$("dl-next").addEventListener("click", () => openView(viewing + 1));
+$("dl-view-close").addEventListener("click", () => $("dl-view").hidden = true);
+document.addEventListener("keydown", e => {
+  if ($("dl-view").hidden) return;
+  if (e.key === "Escape") $("dl-view").hidden = true;
+  if (e.key === "ArrowLeft") openView(viewing - 1);
+  if (e.key === "ArrowRight") openView(viewing + 1);
+});
+
+$("dl-all").addEventListener("click", () => {
+  if (picked.size === photos.length) picked.clear();
+  else photos.forEach(p => picked.add(p.i));
+  updatePicked();
+});
+
+$("dl-get").addEventListener("click", async () => {
+  const list = [...picked];
+  $("dl-get").disabled = true;
+  for (let n = 0; n < list.length; n++) {
+    $("dl-get").textContent = `Downloading ${n + 1} of ${list.length}`;
+    element("a", { href: `${api}/file/${list[n]}`, download: "" }).click();
+    await new Promise(r => setTimeout(r, DOWNLOAD_GAP));
+  }
+  $("dl-get").disabled = false;
+  $("dl-get").textContent = "Download";
+});
+
+async function load() {
+  if (!id) return show("lock");
+  const res = await fetch(api);
+  if (res.ok) return showGallery(await res.json());
+  show(res.status === 401 ? "lock" : "closed");
+}
+
+$("dl-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("dl-error").textContent = "";
+  const res = await fetch("/api/client/unlock", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: $("dl-password").value.trim() }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.ok) return location.assign(`/d/${data.id}`);
+  if (data.closed) return show("closed");
+  $("dl-error").textContent = data.error || "Something went wrong. Please try again.";
+});
+
+load().catch(() => show("closed"));
+</script>
+</body>
+</html>

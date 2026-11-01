@@ -7,27 +7,27 @@
   <title>Photo Admin — ISHQ KNOT</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500&family=Italiana&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #f5efe6; --surface: #fff; --text: #1c1b19; --muted: #6f6b64; --line: #e3dfd8;
-      --accent: #b08d57; --wine: #5c1119; --danger: #a3242f;
-      --serif: "Cormorant Garamond", Georgia, serif; --sans: "Inter", system-ui, sans-serif;
+      --bg: #f1f1f1; --surface: #fff; --text: #111; --muted: #565656; --line: #dcdcdc;
+      --accent: #565656; --wine: #111; --danger: #a3242f;
+      --serif: "Italiana", Georgia, serif; --sans: "Hanken Grotesk", system-ui, sans-serif;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: var(--sans); font-weight: 300; background: var(--bg); color: var(--text); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+    body { font-family: var(--sans); font-weight: 400; background: var(--bg); color: var(--text); line-height: 1.5; -webkit-font-smoothing: antialiased; }
     img { display: block; max-width: 100%; }
     button, input, select { font: inherit; color: inherit; }
     [hidden] { display: none !important; }
 
-    .btn { padding: .7rem 1.3rem; border: 1px solid var(--text); background: transparent; font-size: .75rem;
+    .btn { color: inherit; text-decoration: none; padding: .7rem 1.3rem; border: 1px solid var(--text); background: transparent; font-size: .75rem;
       letter-spacing: .15em; text-transform: uppercase; cursor: pointer; transition: background .2s, color .2s; }
     .btn:hover { background: var(--text); color: #fff; }
     .btn-dark { background: var(--wine); border-color: var(--wine); color: #fff; }
     .btn-dark:hover { background: var(--accent); border-color: var(--accent); }
     .btn:disabled { opacity: .45; cursor: default; pointer-events: none; }
-    .logo { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; letter-spacing: .08em; }
-    .logo span { color: var(--accent); }
+    .logo { font-family: var(--serif); font-size: 1.5rem; font-weight: 400; letter-spacing: .04em; }
+    .logo span { color: inherit; }
 
     /* Login */
     .login { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
@@ -37,7 +37,7 @@
     .error { color: var(--danger); font-size: .85rem; min-height: 1.2em; }
 
     /* Toolbar */
-    .bar { position: sticky; top: 0; z-index: 10; background: rgba(245, 239, 230, .95); backdrop-filter: blur(8px);
+    .bar { position: sticky; top: 0; z-index: 10; background: rgba(241, 241, 241, .95); backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--line); padding: .8rem 1rem; display: flex; flex-wrap: wrap; align-items: center; gap: .8rem; }
     .bar .logo { margin-right: auto; }
     .status { font-size: .85rem; color: var(--muted); }
@@ -77,6 +77,29 @@
     .actions .del { color: var(--danger); }
     .actions .del:hover { border-color: var(--danger); background: var(--danger); color: #fff; }
 
+    /* Client downloads */
+    .dl-new { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .8rem; align-items: end; background: var(--surface); border: 1px solid var(--line); padding: 1rem; margin-bottom: 1.5rem; }
+    .dl-new label, .dl-card label { display: grid; gap: .2rem; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .dl-new input, .dl-card input[type=date] { padding: .5rem; border: 1px solid var(--line); background: var(--bg); font-size: .9rem; letter-spacing: 0; text-transform: none; color: var(--text); width: 100%; }
+    .dl-progress, .dl-send { background: var(--surface); border: 1px solid var(--line); padding: 1rem; margin-bottom: 1.5rem; display: grid; gap: .7rem; font-size: .9rem; }
+    .meter { height: 6px; background: var(--line); }
+    .meter span { display: block; height: 100%; width: 0; background: var(--text); transition: width .3s; }
+    .dl-warn { color: var(--muted); }
+    .dl-send textarea { width: 100%; padding: .6rem; border: 1px solid var(--line); background: var(--bg); font: inherit; resize: vertical; }
+    .dl-list { display: grid; gap: 1rem; }
+    .dl-card { background: var(--surface); border: 1px solid var(--line); padding: 1rem; display: grid; gap: .8rem; }
+    .dl-card.closed { background: var(--bg); }
+    .dl-card-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .8rem; align-items: start; }
+    .dl-card h2 { font-family: var(--serif); font-weight: 400; font-size: 1.5rem; line-height: 1.2; }
+    .dl-state { font-size: .85rem; color: var(--muted); }
+    .dl-url { font-size: .85rem; overflow-wrap: anywhere; color: var(--muted); }
+    .dl-rows { list-style: none; font-size: .9rem; }
+    .dl-rows li { display: flex; justify-content: space-between; gap: 1rem; padding: .35rem 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+    .dl-rows button { flex: none; background: none; border: 0; color: var(--danger); cursor: pointer; font-size: .8rem; }
+    .dl-card .actions { padding: 0; flex-wrap: wrap; }
+    .dl-card .actions button { flex: 1 1 8rem; }
+    .dl-empty { color: var(--muted); font-size: .9rem; }
+
     .toast { position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%); background: var(--text); color: #fff;
       padding: .7rem 1.2rem; font-size: .9rem; max-width: calc(100% - 2rem); opacity: 0; transition: opacity .25s; pointer-events: none; }
     .toast.show { opacity: 1; }
@@ -108,23 +131,57 @@
       <nav class="tabs" role="tablist">
         <button class="tab active" data-tab="hero">Cover photos<span class="count" id="count-hero"></span></button>
         <button class="tab" data-tab="portfolio">Portfolio<span class="count" id="count-portfolio"></span></button>
+        <button class="tab" data-tab="deliveries">Client photos<span class="count" id="count-deliveries"></span></button>
       </nav>
-      <div class="intro">
-        <div>
-          <h1 id="heading"></h1>
-          <p id="help"></p>
+      <div id="photos-view">
+        <div class="intro">
+          <div>
+            <h1 id="heading"></h1>
+            <p id="help"></p>
+          </div>
+          <div class="add">
+            <select id="add-category" aria-label="Category for new photos"></select>
+            <label class="btn btn-dark">+ Add photos<input type="file" id="add-input" accept="image/*" multiple hidden></label>
+          </div>
         </div>
-        <div class="add">
-          <select id="add-category" aria-label="Category for new photos"></select>
-          <label class="btn btn-dark">+ Add photos<input type="file" id="add-input" accept="image/*" multiple hidden></label>
-        </div>
+        <div class="drop" id="drop">Or drag &amp; drop photos here</div>
+        <div class="grid" id="grid"></div>
       </div>
-      <div class="drop" id="drop">Or drag &amp; drop photos here</div>
-      <div class="grid" id="grid"></div>
+
+      <div id="deliveries-view" hidden>
+        <div class="intro">
+          <div>
+            <h1>Client photos</h1>
+            <p>Upload a wedding and give the client the password. They go to Client Photos on the website, type it, see their photos and download the ones they like. After the last date their photos close, and they are deleted 7 days later.</p>
+          </div>
+        </div>
+        <form class="dl-new" id="dl-new">
+          <label>Client name<input type="text" id="dl-client" maxlength="80" placeholder="e.g. Rahul &amp; Anu" required></label>
+          <label>Last date<input type="date" id="dl-date" required></label>
+          <label>Password<input type="text" id="dl-password" minlength="8" autocomplete="off" required></label>
+          <label>Photos<input type="file" id="dl-files" multiple required></label>
+          <button class="btn btn-dark" type="submit" id="dl-create">Create and upload</button>
+        </form>
+        <div class="dl-progress" id="dl-progress" hidden>
+          <p id="dl-progress-text"></p>
+          <div class="meter"><span id="dl-meter"></span></div>
+          <p class="dl-warn">Keep this page open until the upload finishes.</p>
+        </div>
+        <div class="dl-send" id="dl-send" hidden>
+          <p>Send this to the client. The password can't be shown again later.</p>
+          <textarea id="dl-message" rows="5" readonly></textarea>
+          <div class="add">
+            <button class="btn btn-dark" type="button" id="dl-copy">Copy message</button>
+            <a class="btn" id="dl-whatsapp" target="_blank" rel="noopener">Send on WhatsApp</a>
+          </div>
+        </div>
+        <div class="dl-list" id="dl-list"></div>
+      </div>
     </main>
   </div>
 
   <input type="file" id="replace-input" accept="image/*" hidden>
+  <input type="file" id="dl-add-input" multiple hidden>
   <div class="toast" id="toast"></div>
 
 <script>
@@ -206,12 +263,18 @@ async function start() {
   newSrcs = new Set();
   showTab(tab);
   setDirty(false);
+  loadDeliveries().catch(err => toast(err.message));
 }
 
 function showTab(name) {
   tab = name;
-  photos = lists[tab];
+  const files = tab === "deliveries";
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+  $("photos-view").hidden = files;
+  $("deliveries-view").hidden = !files;
+  $("save").hidden = files;
+  if (files) return;
+  photos = lists[tab];
   $("heading").textContent = TABS[tab].heading;
   $("help").innerHTML = TABS[tab].help;
   $("add-category").hidden = tab === "hero";
@@ -354,7 +417,7 @@ $("replace-input").addEventListener("change", async e => {
 const drop = $("drop");
 ["dragenter", "dragover"].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
 ["dragleave", "drop"].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
-document.addEventListener("drop", e => { if (!$("admin").hidden) addFiles(e.dataTransfer.files); });
+document.addEventListener("drop", e => { if (!$("admin").hidden && tab !== "deliveries") addFiles(e.dataTransfer.files); });
 
 // ---------- Save ----------
 $("save").addEventListener("click", async () => {
@@ -379,7 +442,269 @@ $("save").addEventListener("click", async () => {
   }
 });
 
-window.addEventListener("beforeunload", e => { if (dirty) e.preventDefault(); });
+// ---------- Client downloads ----------
+const UPLOAD_AT_ONCE = 3;
+const FILES_AT_ONCE = 3;
+const SAVE_EVERY = 25; // finished uploads join the client's list in batches
+const THUMB_SIDE = 1000;
+let deliveries = [];
+let uploading = false;
+let addTo = null; // the link that "Add file" is adding to
+
+const sizeText = n => n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`;
+const dateText = d => new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+const jsonBody = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+function dayFromNow(days) {
+  const d = new Date(Date.now() + days * 86400000);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+// Without 0/O or 1/l/I, so it can be read out over the phone
+function newPassword() {
+  const letters = "abcdefghjkmnpqrstuvwxyz23456789";
+  return [...crypto.getRandomValues(new Uint32Array(10))].map(n => letters[n % letters.length]).join("");
+}
+
+function resetForm() {
+  $("dl-new").reset();
+  $("dl-date").value = dayFromNow(30);
+  $("dl-date").min = dayFromNow(0);
+  $("dl-password").value = newPassword();
+}
+
+async function loadDeliveries() {
+  deliveries = await api("/api/deliveries");
+  renderDeliveries();
+}
+
+function renderDeliveries() {
+  $("count-deliveries").textContent = deliveries.length;
+  if (!deliveries.length) {
+    $("dl-list").innerHTML = '<p class="dl-empty">No clients yet.</p>';
+    return;
+  }
+  $("dl-list").innerHTML = deliveries.map(d => {
+    const closed = Date.now() > d.expiresAt;
+    return `
+    <article class="dl-card${closed ? " closed" : ""}" data-id="${d.id}">
+      <div class="dl-card-top">
+        <div>
+          <h2>${escape(d.client)}</h2>
+          <p class="dl-state">${closed ? `Closed. Files delete 7 days after ${dateText(d.date)}. Change the last date to reopen.` : `Open until ${dateText(d.date)}`} · ${d.count} file${d.count === 1 ? "" : "s"}, ${sizeText(d.total)}</p>
+        </div>
+        <label>Last date<input type="date" data-act="date" value="${d.date}"></label>
+      </div>
+      <ul class="dl-rows"></ul>
+      <div class="actions">
+        <button type="button" data-act="add">Add photos</button>
+        <button type="button" data-act="manage">See files</button>
+        <button type="button" data-act="password">New password</button>
+        <button type="button" data-act="delete" class="del">Delete</button>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+function showFiles(rows, files) {
+  rows.innerHTML = files.map((f, i) => `<li data-name="${escape(f.name)}"><span>${escape(f.name)} (${sizeText(f.size)})</span><button type="button" data-act="remove" data-i="${i}">Remove</button></li>`).join("");
+}
+
+function showMessage(d, password) {
+  const message = `Your ISHQ KNOT photos are ready.\n\nGo to: ${location.origin}/client-photos\nPassword: ${password}\nPlease download by: ${dateText(d.date)}`;
+  $("dl-message").value = message;
+  $("dl-whatsapp").href = `https://wa.me/?text=${encodeURIComponent(message)}`;
+  $("dl-send").hidden = false;
+  $("dl-send").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+// Big files go up in parts, a few at a time. A failed part is tried again before giving up.
+async function uploadPart(id, up, part, blob) {
+  const query = new URLSearchParams({ key: up.key, uploadId: up.uploadId, part });
+  for (let tries = 3; ; tries--) {
+    try {
+      return await api(`/api/deliveries/${id}/parts?${query}`, { method: "PUT", body: blob });
+    } catch (err) {
+      if (tries <= 1) throw err;
+    }
+  }
+}
+
+// A preview made in the browser. Files it can't read (like RAW) stay downloads without a picture.
+async function previewOf(file) {
+  if (!file.type.startsWith("image/")) return null;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, THUMB_SIDE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    return await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.8));
+  } catch {
+    return null;
+  }
+}
+
+async function uploadBigFile(id, file, onBytes) {
+  const up = await api(`/api/deliveries/${id}/files`, { method: "POST" });
+  const preview = await previewOf(file);
+  const entry = { key: up.key, name: file.name, size: file.size };
+  if (preview) {
+    const query = new URLSearchParams({ key: up.key });
+    entry.thumb = (await api(`/api/deliveries/${id}/thumb?${query}`, { method: "PUT", body: preview })).thumb;
+  }
+  const count = Math.max(1, Math.ceil(file.size / up.partSize));
+  const parts = new Array(count);
+  let next = 0;
+  const worker = async () => {
+    while (next < count) {
+      const n = next++;
+      const blob = file.slice(n * up.partSize, (n + 1) * up.partSize);
+      parts[n] = await uploadPart(id, up, n + 1, blob);
+      onBytes(blob.size);
+    }
+  };
+  try {
+    await Promise.all(Array.from({ length: Math.min(count, UPLOAD_AT_ONCE) }, worker));
+  } catch (err) {
+    const query = new URLSearchParams({ key: up.key, uploadId: up.uploadId });
+    api(`/api/deliveries/${id}/parts?${query}`, { method: "DELETE" }).catch(() => {});
+    throw err;
+  }
+  await api(`/api/deliveries/${id}/complete`, jsonBody("POST", { key: up.key, uploadId: up.uploadId, parts }));
+  return entry;
+}
+
+async function uploadAll(id, files) {
+  const total = files.reduce((sum, f) => sum + f.size, 0);
+  let sent = 0, done = 0, next = 0, failed = false, saving = Promise.resolve();
+  const finished = [];
+  uploading = true;
+  $("dl-create").disabled = true;
+  $("dl-progress").hidden = false;
+  const update = () => {
+    $("dl-progress-text").textContent = `Uploading ${done} of ${files.length} files: ${sizeText(sent)} of ${sizeText(total)}`;
+    $("dl-meter").style.width = `${total ? sent / total * 100 : 0}%`;
+  };
+  const save = () => {
+    const batch = finished.splice(0);
+    if (batch.length) saving = saving.then(async () => {
+      const saved = await api(`/api/deliveries/${id}/add`, jsonBody("POST", { files: batch }));
+      deliveries = deliveries.map(d => d.id === id ? saved : d);
+      renderDeliveries();
+    });
+    return saving;
+  };
+  const worker = async () => {
+    while (next < files.length && !failed) {
+      const file = files[next++];
+      finished.push(await uploadBigFile(id, file, bytes => { sent += bytes; update(); }));
+      done++;
+      update();
+      if (finished.length >= SAVE_EVERY) await save();
+    }
+  };
+  update();
+  const results = await Promise.allSettled(Array.from({ length: FILES_AT_ONCE }, () => worker().catch(err => { failed = true; throw err; })));
+  try {
+    await save();
+    const stopped = results.find(r => r.status === "rejected");
+    if (stopped) throw stopped.reason;
+    toast("Upload finished");
+    return true;
+  } catch (err) {
+    toast(`Upload stopped after ${done} files: ${err.message}. Use Add photos for the rest.`);
+    return false;
+  } finally {
+    uploading = false;
+    $("dl-create").disabled = false;
+    $("dl-progress").hidden = true;
+  }
+}
+
+$("dl-new").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (uploading) return;
+  $("dl-send").hidden = true;
+  const password = $("dl-password").value;
+  const files = [...$("dl-files").files];
+  try {
+    const d = await api("/api/deliveries", jsonBody("POST", { client: $("dl-client").value, date: $("dl-date").value, password }));
+    deliveries.unshift(d);
+    renderDeliveries();
+    showMessage(d, password); // shown first, so the password isn't lost if the upload stops
+    await uploadAll(d.id, files);
+    resetForm();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+$("dl-list").addEventListener("change", async e => {
+  if (e.target.dataset.act !== "date") return;
+  const id = e.target.closest(".dl-card").dataset.id;
+  try {
+    const saved = await api(`/api/deliveries/${id}`, jsonBody("PUT", { date: e.target.value }));
+    deliveries = deliveries.map(d => d.id === id ? saved : d);
+    renderDeliveries();
+    toast("Last date changed");
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+$("dl-list").addEventListener("click", async e => {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const id = btn.closest(".dl-card").dataset.id;
+  const d = deliveries.find(x => x.id === id);
+  try {
+    if (btn.dataset.act === "manage") {
+      const rows = btn.closest(".dl-card").querySelector(".dl-rows");
+      if (rows.children.length) return rows.replaceChildren();
+      showFiles(rows, await api(`/api/deliveries/${id}/files`));
+    } else if (btn.dataset.act === "add") {
+      if (uploading) return toast("Wait for the upload to finish");
+      addTo = id;
+      $("dl-add-input").click();
+    } else if (btn.dataset.act === "password") {
+      if (!confirm(`Make a new password for ${d.client}? The old one will stop working.`)) return;
+      const password = newPassword();
+      await api(`/api/deliveries/${id}`, jsonBody("PUT", { password }));
+      showMessage(d, password);
+    } else if (btn.dataset.act === "remove") {
+      const name = btn.closest("li").dataset.name;
+      if (!confirm(`Delete ${name}? This can't be undone.`)) return;
+      const saved = await api(`/api/deliveries/${id}/files/${btn.dataset.i}`, { method: "DELETE" });
+      deliveries = deliveries.map(x => x.id === id ? saved : x);
+      renderDeliveries();
+    } else if (btn.dataset.act === "delete") {
+      if (!confirm(`Delete all photos for ${d.client}? This can't be undone.`)) return;
+      await api(`/api/deliveries/${id}`, { method: "DELETE" });
+      deliveries = deliveries.filter(x => x.id !== id);
+      renderDeliveries();
+    }
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+$("dl-add-input").addEventListener("change", e => {
+  const files = [...e.target.files];
+  e.target.value = "";
+  if (files.length) uploadAll(addTo, files);
+});
+
+$("dl-copy").addEventListener("click", async () => {
+  await navigator.clipboard.writeText($("dl-message").value);
+  toast("Message copied");
+});
+
+resetForm();
+
+window.addEventListener("beforeunload", e => { if (dirty || uploading) e.preventDefault(); });
 
 if (password) api("/api/login", { method: "POST" }).then(start).catch(() => {});
 </script>

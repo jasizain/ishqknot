@@ -15,7 +15,7 @@ async function loadGallery() {
     item.dataset.index = i;
     item.tabIndex = 0;
     item.innerHTML = `
-      <img src="${p.src}" alt="${p.title}" loading="lazy"${p.pos ? ` style="object-position:${p.pos}"` : ""}>
+      <div class="gallery-photo"><img src="${p.src}" alt="${p.title}" loading="lazy"${p.pos ? ` style="object-position:${p.pos}"` : ""}></div>
       <figcaption class="caption"><h4>${p.title}</h4><span>${p.category}</span></figcaption>`;
     gallery.appendChild(item);
   });
@@ -50,6 +50,7 @@ const packages = [
     team: ["1 Photographer", "1 Videographer"],
     includes: ["Wedding day coverage", "Evening reception coverage", "Edited photos", "Highlight film (4–6 min)", "2–3 reels (time based)", "Online album (shareable link)", "All final files on pendrive"] },
   { name: "Premium Experience", title: "Luxury Wedding Day Coverage", type: "film", price: "", featured: true,
+    photo: "images/grand-entrance.jpg",
     quote: "More than photographs and films, we create memories that will be cherished for generations.",
     team: ["2 Photographers", "2 Videographers"],
     groups: {
@@ -69,22 +70,34 @@ packages.forEach((p, i) => {
   const card = document.createElement("article");
   card.className = "pkg" + (p.featured ? " featured" : "");
   card.dataset.type = p.type;
-  card.innerHTML = `
-    ${p.featured ? '<span class="pkg-badge">Most complete</span>' : ""}
-    <p class="pkg-num">Package ${num}</p>
-    <h3>${p.name}</h3>
-    <p class="pkg-title">${p.title}</p>
-    ${p.quote ? `<p class="pkg-quote">“${p.quote}”</p>` : ""}
-    <p class="pkg-label">Coverage team</p>
-    <p class="pkg-team">${p.team.join(" · ")}</p>
-    <p class="pkg-label">Included</p>
-    ${p.groups
-      ? Object.entries(p.groups).map(([g, items]) => `<p class="pkg-group">${g}</p>${list(items)}`).join("")
-      : list(p.includes)}
-    <div class="pkg-foot">
-      <p class="pkg-price">${p.price || "Price on request"}</p>
-      <a href="#contact" class="btn ${p.featured ? "btn-light" : "btn-dark"}" data-choose="${label}">Enquire</a>
-    </div>`;
+  const price = p.price || "Price on request";
+  const enquire = `<a href="#contact" class="btn" data-choose="${label}">Enquire <i>→</i></a>`;
+  card.innerHTML = p.featured ? `
+    <div class="pkg-photo"><img src="${p.photo}" alt="" loading="lazy"></div>
+    <div class="pkg-feature">
+      <div>
+        <h3>${p.name}</h3>
+        <p class="pkg-title">${p.title}. Our most complete package.</p>
+        <p class="pkg-quote">“${p.quote}”</p>
+      </div>
+      <div><p class="pkg-label">Coverage team</p><p class="pkg-team">${p.team.join(" · ")}</p></div>
+      <div class="pkg-groups">
+        ${Object.entries(p.groups).map(([g, items]) => `<div><p class="pkg-group">${g}</p>${list(items)}</div>`).join("")}
+      </div>
+      <div class="pkg-feature-foot"><p class="pkg-price">${price}</p>${enquire}</div>
+    </div>` : `
+    <div>
+      <h3>${p.name}</h3>
+      <p class="pkg-title">${p.title}</p>
+      <p class="pkg-price">${price}</p>
+    </div>
+    <div>
+      <p class="pkg-label">Coverage team</p>
+      <p class="pkg-team">${p.team.join(" · ")}</p>
+      ${p.quote ? `<p class="pkg-quote">“${p.quote}”</p>` : ""}
+    </div>
+    <div><p class="pkg-label">Included</p>${list(p.includes)}</div>
+    <div class="pkg-foot">${enquire}</div>`;
   pkgGrid.appendChild(card);
   pkgSelect.add(new Option(label, label));
 });
@@ -94,20 +107,60 @@ pkgGrid.addEventListener("click", e => {
   if (btn) pkgSelect.value = btn.dataset.choose;
 });
 
-document.querySelectorAll(".pkg-tab").forEach(tab => {
+const pkgTabs = document.querySelectorAll("[data-pkg]");
+pkgTabs.forEach(tab => {
   tab.addEventListener("click", () => {
-    document.querySelector(".pkg-tab.active").classList.remove("active");
+    pkgTabs.forEach(t => t.classList.remove("active"));
     tab.classList.add("active");
     pkgGrid.querySelectorAll(".pkg").forEach(card =>
       card.classList.toggle("hidden", tab.dataset.pkg !== "all" && card.dataset.type !== tab.dataset.pkg));
   });
 });
 
-// Filters + "View more" (shows two rows at first)
-const PREVIEW = 8;
+// Filters + "View more" (shows three rows at first; the wall has four columns, two on phones)
+const PREVIEW = innerWidth > 860 ? 12 : 8;
 const moreBtn = document.getElementById("gallery-more");
 let activeFilter = "all";
 let expanded = false;
+
+// The wall: each photo goes in the shortest column, then every column is
+// stretched a little so they all end level. Heights are in hundredths of a column's width.
+const SHAPES = [133, 150, 125];
+const GAP = 4;
+
+// A short list uses a column count it divides into evenly, so no photo stretches too tall
+function wallColumns(count) {
+  const base = innerWidth > 1100 ? 4 : innerWidth > 860 ? 3 : 2;
+  if (base === 2 || count >= base * 3) return Math.max(1, Math.min(count, base));
+  return [base + 2, base + 1, base, base - 1].find(n => count % n === 0) || Math.max(1, Math.min(count, base));
+}
+
+function layoutWall() {
+  const items = [...gallery.querySelectorAll(".gallery-item:not(.hidden)")];
+  const cols = wallColumns(items.length);
+  gallery.style.setProperty("--cols", cols);
+  gallery.style.setProperty("--unit", `${(gallery.clientWidth - GAP * (cols - 1)) / cols / 100}px`);
+
+  const columns = Array.from({ length: cols }, () => ({ height: 0, items: [] }));
+  items.forEach(item => {
+    const column = columns.reduce((a, b) => b.height < a.height ? b : a);
+    const size = SHAPES[item.dataset.look];
+    column.items.push({ item, size });
+    column.height += size;
+  });
+
+  const tallest = Math.max(...columns.map(column => column.height));
+  columns.forEach((column, i) => {
+    let row = 1;
+    column.items.forEach(({ item, size }, n) => {
+      const last = n === column.items.length - 1;
+      const span = last ? tallest + 1 - row : Math.round(size * tallest / column.height);
+      item.style.gridColumn = i + 1;
+      item.style.gridRow = `${row} / span ${span}`;
+      row += span;
+    });
+  });
+}
 
 function renderGallery() {
   let shown = 0, matches = 0;
@@ -115,18 +168,22 @@ function renderGallery() {
     const match = activeFilter === "all" || item.dataset.category === activeFilter;
     if (match) matches++;
     const show = match && (expanded || shown < PREVIEW);
-    if (show) shown++;
+    if (show) item.dataset.look = shown++ % 3; // photo shape, repeats every three
     const wasHidden = item.classList.contains("hidden");
     item.classList.toggle("hidden", !show);
     if (show && wasHidden) { item.style.animation = "none"; item.offsetHeight; item.style.animation = ""; }
   });
   moreBtn.parentElement.hidden = matches <= PREVIEW;
   moreBtn.textContent = expanded ? "Show less" : `View more photos (${matches - PREVIEW})`;
+  layoutWall();
 }
 
-document.querySelectorAll(".filter").forEach(btn => {
+addEventListener("resize", layoutWall);
+
+const filterBtns = document.querySelectorAll("[data-filter]");
+filterBtns.forEach(btn => {
   btn.addEventListener("click", () => {
-    document.querySelector(".filter.active").classList.remove("active");
+    filterBtns.forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     activeFilter = btn.dataset.filter;
     expanded = false;
@@ -189,29 +246,50 @@ document.addEventListener("keydown", e => {
 });
 
 // Hero slideshow — cover photos are managed from admin.html (/api/hero, default hero.json).
-// The slides written in index.html show first; they're swapped if the saved list differs.
+// The slide written in index.html shows first; the rest are added once the list loads.
 const heroBox = document.querySelector(".hero-slides");
-let slideIdx = 0;
+const heroPanels = [...heroBox.querySelectorAll(".hero-panel")];
+let heroCount = 0, slideIdx = 0, heroTimer;
+
+function showSlide(i) {
+  slideIdx = i;
+  heroPanels.forEach((panel, side) => {
+    const at = (i + side) % heroCount;
+    panel.querySelectorAll(".hero-slide").forEach(s => s.classList.toggle("active", +s.dataset.i === at));
+  });
+}
+
+function startSlides() {
+  clearInterval(heroTimer);
+  if (heroCount > 1) heroTimer = setInterval(() => showSlide((slideIdx + 1) % heroCount), 6000);
+}
 
 fetch("/api/hero").then(r => r.ok ? r.json() : Promise.reject())
+  .catch(() => fetch("hero.json").then(r => r.json()))
   .then(list => {
-    const current = [...heroBox.querySelectorAll("img")].map(img => img.getAttribute("src") + img.style.objectPosition);
-    if (!list.length || list.map(h => h.src + (h.pos || "center 50%")).join() === current.join()) return;
-    heroBox.innerHTML = list.map((h, i) => `
-      <div class="hero-slide${i === 0 ? " active" : ""}" data-title="${h.title}">
-        <img src="${h.src}" alt="${h.title}" style="object-position: ${h.pos || "center 50%"}"${i ? ' loading="lazy"' : ""}>
-      </div>`).join("");
-    slideIdx = 0;
+    if (!list.length) return;
+    heroCount = list.length;
+    heroBox.classList.toggle("single", heroCount < 2);
+    heroPanels.forEach((panel, side) => {
+      const first = panel.querySelector(".hero-slide");
+      list.forEach((h, i) => {
+        const pos = h.pos || "center 50%";
+        if (i === side % heroCount && first.querySelector("img").getAttribute("src") === h.src) {
+          first.dataset.i = i;
+          first.querySelector("img").style.objectPosition = pos;
+          return;
+        }
+        panel.insertAdjacentHTML("beforeend", `
+          <div class="hero-slide" data-i="${i}">
+            <img src="${h.src}" alt="${h.title}" style="object-position: ${pos}" loading="lazy">
+          </div>`);
+      });
+      if (!("i" in first.dataset)) first.remove();
+    });
+    showSlide(0);
+    startSlides();
   })
   .catch(() => {});
-
-setInterval(() => {
-  const heroSlides = heroBox.querySelectorAll(".hero-slide");
-  if (heroSlides.length < 2) return;
-  heroSlides[slideIdx].classList.remove("active");
-  slideIdx = (slideIdx + 1) % heroSlides.length;
-  heroSlides[slideIdx].classList.add("active");
-}, 6000);
 
 // Nav: background on scroll + mobile menu
 const nav = document.getElementById("nav");
@@ -233,15 +311,125 @@ nav.querySelectorAll(".nav-links a").forEach(a =>
   })
 );
 
-// Reveal sections on scroll
-const revealEls = document.querySelectorAll(".section-head, .about-img, .about-text, .terms-inner > div, .contact-info, .contact-form, .quote blockquote");
-revealEls.forEach(el => el.classList.add("reveal"));
+// Reveal on scroll — items in the same group follow each other in a short stagger
+const revealGroups = [".section > h2", ".about-copy", ".collage figure", ".line", ".portfolio-head p",
+  ".packages-head p", ".pkg", ".pay-steps li", ".terms-list li", ".quote-photo", ".quote blockquote",
+  ".contact-info > *", ".contact-form"];
 const io = new IntersectionObserver(entries => {
   entries.forEach(entry => {
     if (entry.isIntersecting) { entry.target.classList.add("visible"); io.unobserve(entry.target); }
   });
-}, { threshold: 0.15 });
-revealEls.forEach(el => io.observe(el));
+}, { threshold: 0.1 });
+revealGroups.forEach(selector => document.querySelectorAll(selector).forEach(el => {
+  el.classList.add("reveal");
+  el.style.setProperty("--i", [...el.parentElement.children].indexOf(el) % 4);
+  io.observe(el);
+}));
+
+// The two strands: they leave the two hero photos, weave down the page behind the sections,
+// then come in from opposite edges of #knot-slot and hook together in a reef knot.
+// Scrolling draws them; the knot darkens once it closes.
+const strands = document.getElementById("strands");
+const knotSlot = document.getElementById("knot-slot");
+const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const main = document.querySelector("main");
+let strandTable = [];
+
+function weave(points) {
+  return points.reduce((d, [x, y], i) => {
+    if (!i) return `M${x} ${y}`;
+    const [px, py] = points[i - 1], mid = (py + y) / 2;
+    return `${d}C${px} ${mid} ${x} ${mid} ${x} ${y}`;
+  }, "");
+}
+
+// One rope of the knot, from the page edge (edgeX, top) into a loop around the other rope and out
+// to a short loose end. turn = 1 or -1: the second rope is the first turned half a circle.
+function ropePath(edgeX, top, cx, cy, size, turn) {
+  const p = (x, y) => `${cx + x * size * turn} ${cy + y * size * turn}`;
+  const inY = cy - 60 * size * turn, inX = cx - 190 * size * turn;
+  return `M${edgeX} ${top}C${edgeX} ${inY} ${(edgeX + inX) / 2} ${inY} ${inX} ${inY}` +
+    `C${p(-100, -60)} ${p(30, -50)} ${p(70, -26)}C${p(104, -8)} ${p(104, 8)} ${p(70, 26)}` +
+    `C${p(30, 50)} ${p(-100, 60)} ${p(-190, 60)}C${p(-222, 60)} ${p(-250, 76)} ${p(-262, 100)}`;
+}
+
+// Where a rope crosses the middle; drawn on top so the two read as tied, not just crossed
+function overPiece(path, cx, cy, topHalf) {
+  const total = path.getTotalLength();
+  let best = 0, bestGap = Infinity;
+  for (let l = 0; l < total; l += 2) {
+    const pt = path.getPointAtLength(l);
+    if ((pt.y < cy) !== topHalf) continue;
+    if (Math.abs(pt.x - cx) < bestGap) { bestGap = Math.abs(pt.x - cx); best = l; }
+  }
+  const pts = [];
+  for (let l = best - 15; l <= best + 15; l += 3) {
+    const pt = path.getPointAtLength(l);
+    pts.push(`${pt.x} ${pt.y}`);
+  }
+  const d = `M${pts.join("L")}`;
+  return `<path class="over halo" d="${d}"/><path class="over" d="${d}"/>`;
+}
+
+function drawStrands() {
+  const W = main.clientWidth, H = main.scrollHeight;
+  const slot = knotSlot.getBoundingClientRect();
+  const top = slot.top - main.getBoundingClientRect().top;
+  const cx = W / 2, cy = top + slot.height / 2;
+  const size = Math.min(1, W / 640);
+  const hero = document.getElementById("hero").offsetHeight;
+  const stops = [...main.querySelectorAll(":scope > section:not(.hero):not(.contact)")].map(el => el.offsetTop);
+  const edge = W * .05;
+
+  const rope = turn => ropePath(turn > 0 ? edge : W - edge, top, cx, cy, size, turn);
+  const route = (start, sway, turn) => {
+    const pts = [[W * start, hero - 40], ...stops.map((y, i) => [W * sway[i % 2], y]), [turn > 0 ? edge : W - edge, top]];
+    return weave(pts) + rope(turn).replace(/^M[^C]+/, "");
+  };
+
+  strands.setAttribute("width", W);
+  strands.setAttribute("height", H);
+  strands.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  strands.innerHTML = `
+    <path class="strand" pathLength="1" d="${route(.25, [.92, .08], 1)}"/>
+    <path class="strand" pathLength="1" d="${route(.75, [.06, .9], -1)}"/>
+    <path class="knot" d="${rope(1)}"/>
+    <path class="knot" d="${rope(-1)}"/>`;
+  const ropes = strands.querySelectorAll(".knot");
+  strands.insertAdjacentHTML("beforeend", overPiece(ropes[0], cx, cy, true) + overPiece(ropes[1], cx, cy, false));
+
+  // How far along each strand the line must be drawn when the reader reaches a given height
+  strandTable = [...strands.querySelectorAll(".strand")].map((path, n) => {
+    const total = path.getTotalLength(), ropeStart = total - ropes[n].getTotalLength(), rows = [];
+    for (let l = 0; l < ropeStart; l += 24) rows.push([path.getPointAtLength(l).y, l / total]);
+    rows.push([top, ropeStart / total], [cy + 100 * size, 1]);
+    return rows;
+  });
+  stepStrands();
+}
+
+function stepStrands() {
+  const reach = calm ? Infinity : window.scrollY + innerHeight * .7;
+  strands.querySelectorAll(".strand").forEach((path, n) => {
+    const rows = strandTable[n], i = rows.findIndex(r => r[0] > reach);
+    let done = 1;
+    if (i === 0) done = 0;
+    else if (i > 0) {
+      const [y0, f0] = rows[i - 1], [y1, f1] = rows[i];
+      done = f0 + (f1 - f0) * (reach - y0) / (y1 - y0);
+    }
+    path.style.strokeDashoffset = 1 - done;
+  });
+  const last = strandTable[0]?.at(-1)[0];
+  strands.classList.toggle("tied", reach >= last);
+}
+
+let strandFrame;
+new ResizeObserver(() => {
+  cancelAnimationFrame(strandFrame);
+  strandFrame = requestAnimationFrame(drawStrands);
+}).observe(main);
+window.addEventListener("scroll", () => { if (strandTable.length) stepStrands(); }, { passive: true });
 
 // Contact form → saves the enquiry to the Google Sheet CRM (see crm/README.md),
 // then opens WhatsApp with the details filled in
