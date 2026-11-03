@@ -534,7 +534,7 @@ async function uploadPart(id, up, part, blob) {
   }
 }
 
-function shrink(bitmap, side) {
+function scaleDown(bitmap, side) {
   const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
@@ -547,7 +547,7 @@ function shrink(bitmap, side) {
 // that can't be read still uploads: it just won't turn up in a face search.
 async function faceCodes(bitmap) {
   const { readFaces, packFaces } = await import("/face/faces.js");
-  const faces = await readFaces(shrink(bitmap, FACE_SIDE), { thorough: true });
+  const faces = await readFaces(scaleDown(bitmap, FACE_SIDE), { thorough: true });
   return faces.length ? packFaces(faces) : "";
 }
 
@@ -566,7 +566,7 @@ async function previewOf(file) {
   if (!file.type.startsWith("image/")) return null;
   try {
     const bitmap = await createImageBitmap(file);
-    const preview = await new Promise(resolve => shrink(bitmap, THUMB_SIDE).toBlob(resolve, "image/jpeg", 0.8));
+    const preview = await new Promise(resolve => scaleDown(bitmap, THUMB_SIDE).toBlob(resolve, "image/jpeg", 0.8));
     const faces = await queueFaces(bitmap);
     bitmap.close();
     return { preview, faces };
