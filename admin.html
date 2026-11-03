@@ -99,6 +99,12 @@
     .dl-card .actions { padding: 0; flex-wrap: wrap; }
     .dl-card .actions button { flex: 1 1 8rem; }
     .dl-empty { color: var(--muted); font-size: .9rem; }
+    .dl-storage { background: var(--surface); border: 1px solid var(--line); padding: 1rem; margin-bottom: 1.2rem; display: grid; gap: .7rem; }
+    .dl-storage-warn { background: #fff4d6; border: 1px solid #e0b84c; padding: .7rem .9rem; }
+    .dl-remind { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; font-size: .85rem; color: var(--muted); }
+    .dl-remind label { display: grid; gap: .2rem; }
+    .dl-remind input { width: 7rem; padding: .45rem; border: 1px solid var(--line); background: var(--bg); font: inherit; color: var(--text); }
+    .dl-remind button { padding: .5rem 1rem; border: 1px solid var(--line); background: var(--bg); font: inherit; color: var(--text); cursor: pointer; }
 
     .toast { position: fixed; left: 50%; bottom: 1.2rem; transform: translateX(-50%); background: var(--text); color: #fff;
       padding: .7rem 1.2rem; font-size: .9rem; max-width: calc(100% - 2rem); opacity: 0; transition: opacity .25s; pointer-events: none; }
@@ -154,6 +160,14 @@
             <h1>Client photos</h1>
             <p>Upload a wedding and give the client the password. They go to Client Photos on the website, type it, see their photos and download the ones they like. After the last date their photos close, and they are deleted 7 days later.</p>
           </div>
+        </div>
+        <div class="dl-storage">
+          <p id="dl-storage-text"></p>
+          <p class="dl-storage-warn" id="dl-storage-warn" hidden></p>
+          <form class="dl-remind" id="dl-remind-form">
+            <label>Remind me when storage reaches (GB)<input type="number" id="dl-remind" min="1" step="1" required></label>
+            <button type="submit">Save</button>
+          </form>
         </div>
         <form class="dl-new" id="dl-new">
           <label>Client name<input type="text" id="dl-client" maxlength="80" placeholder="e.g. Rahul &amp; Anu" required></label>
@@ -454,7 +468,7 @@ let uploading = false;
 let faceTurn = Promise.resolve(), faceMisses = 0;
 let addTo = null; // the link that "Add file" is adding to
 
-const sizeText = n => n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`;
+const sizeText = n => !n ? "0 MB" : n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1e6))} MB`;
 const dateText = d => new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 const jsonBody = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
@@ -477,12 +491,44 @@ function resetForm() {
 }
 
 async function loadDeliveries() {
-  deliveries = await api("/api/deliveries");
+  [deliveries, { remindGB }] = await Promise.all([api("/api/deliveries"), api("/api/settings")]);
   renderDeliveries();
+}
+
+$("dl-remind-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  try {
+    ({ remindGB } = await api("/api/settings", jsonBody("PUT", { remindGB: $("dl-remind").value })));
+    $("dl-remind").blur();
+    showStorage();
+    toast(`You'll be reminded at ${remindGB} GB`);
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+// Cloudflare R2 prices, checked October 2026
+const FREE_GB = 10;
+const PER_GB_MONTH = 0.015;
+
+let remindGB = FREE_GB;
+
+// Counts client files only; previews and the website's photos add a little more
+function showStorage() {
+  const gb = deliveries.reduce((sum, d) => sum + d.total, 0) / 1e9;
+  const cost = Math.max(0, gb - FREE_GB) * PER_GB_MONTH;
+  const used = gb ? sizeText(gb * 1e9) : "nothing yet";
+  const left = gb < FREE_GB ? `Free space left: ${sizeText((FREE_GB - gb) * 1e9)} of ${FREE_GB} GB` : `Free ${FREE_GB} GB used up`;
+  const bill = cost ? `about $${cost.toFixed(2)} a month` : "free";
+  $("dl-storage-text").textContent = `Storage used: ${used} · ${left} · Cloudflare bill: ${bill}`;
+  $("dl-storage-warn").hidden = gb < remindGB;
+  $("dl-storage-warn").textContent = `Reminder: storage has reached ${remindGB} GB, so Cloudflare will charge about $${cost.toFixed(2)} a month. To lower it, delete clients who have downloaded their photos.`;
+  if (document.activeElement !== $("dl-remind")) $("dl-remind").value = remindGB;
 }
 
 function renderDeliveries() {
   $("count-deliveries").textContent = deliveries.length;
+  showStorage();
   if (!deliveries.length) {
     $("dl-list").innerHTML = '<p class="dl-empty">No clients yet.</p>';
     return;

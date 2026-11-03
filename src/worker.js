@@ -11,6 +11,8 @@ const MAX_UPLOAD = 15 * 1024 * 1024;
 // Client photos: a client types their password at /client-photos, then sees their own photos at /d/<id>.
 // The client list lives in R2 as deliveries.json; files live under deliveries/<id>/ and are never public.
 const DELIVERIES = "deliveries.json";
+const SETTINGS = "settings.json";
+const REMIND_GB = 10; // the end of Cloudflare's free storage
 const PART_SIZE = 32 * 1024 * 1024; // a Worker request can't exceed 100 MB, so big files upload in parts
 const KEEP_DAYS = 7; // an expired link stays closed this long before its files are deleted, so it can be extended
 const HASH_ROUNDS = 10000; // low enough for the Workers Free 10 ms CPU limit
@@ -27,6 +29,7 @@ export default {
       if (path === "/api/client/unlock" && req.method === "POST") return await clientUnlock(req, env, url);
       if (path.startsWith("/api/d/")) return await publicDelivery(req, env, url);
       if (path.startsWith("/api/deliveries")) return await authed(req, env, () => adminDelivery(req, env, url));
+      if (path === "/api/settings") return await authed(req, env, () => settings(req, env));
       const list = LISTS[path];
       if (list && req.method === "GET") return getPhotos(req, env, list);
       if (list && req.method === "PUT") return authed(req, env, () => savePhotos(req, env, list));
@@ -113,6 +116,20 @@ async function media(key, env) {
       ETag: obj.httpEtag,
     },
   });
+}
+
+// Admin choices kept with the photos, so every device sees the same ones
+async function settings(req, env) {
+  if (req.method === "PUT") {
+    const { remindGB } = await req.json().catch(() => ({}));
+    const gb = Number(remindGB);
+    if (!(gb > 0 && gb <= 100000)) return json({ error: "Enter the storage in GB" }, 400);
+    await env.BUCKET.put(SETTINGS, JSON.stringify({ remindGB: gb }), { httpMetadata: { contentType: "application/json" } });
+    return json({ remindGB: gb });
+  }
+  if (req.method !== "GET") return json({ error: "Not found" }, 404);
+  const obj = await env.BUCKET.get(SETTINGS);
+  return json({ remindGB: REMIND_GB, ...(obj && await obj.json()) }, 200, { "Cache-Control": "no-store" });
 }
 
 // ---------- Client photos ----------
