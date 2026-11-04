@@ -19,6 +19,11 @@ const HASH_ROUNDS = 10000; // low enough for the Workers Free 10 ms CPU limit
 const SESSION_MS = 24 * 60 * 60 * 1000;
 const MAX_FACE_TEXT = 8000; // 40 faces in one photo
 
+// Reviews: a client writes one from their photo page; it waits under reviews/waiting/<id>.json
+// until the admin approves it into reviews.json, which the homepage shows.
+const REVIEWS = "reviews.json";
+const waitingKey = id => `reviews/waiting/${id}.json`;
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -30,6 +35,8 @@ export default {
       if (path.startsWith("/api/d/")) return await publicDelivery(req, env, url);
       if (path.startsWith("/api/deliveries")) return await authed(req, env, () => adminDelivery(req, env, url));
       if (path === "/api/settings") return await authed(req, env, () => settings(req, env));
+      if (path === "/api/reviews" && req.method === "GET") return await publicReviews(env);
+      if (path.startsWith("/api/reviews/")) return await authed(req, env, () => adminReviews(req, env, url));
       const list = LISTS[path];
       if (list && req.method === "GET") return getPhotos(req, env, list);
       if (list && req.method === "PUT") return authed(req, env, () => savePhotos(req, env, list));
@@ -132,6 +139,79 @@ async function settings(req, env) {
   return json({ remindGB: REMIND_GB, ...(obj && await obj.json()) }, 200, { "Cache-Control": "no-store" });
 }
 
+// ---------- Reviews ----------
+
+async function loadReviews(env) {
+  const obj = await env.BUCKET.get(REVIEWS);
+  return obj ? obj.json() : [];
+}
+
+function saveReviews(env, all) {
+  return env.BUCKET.put(REVIEWS, JSON.stringify(all), { httpMetadata: { contentType: "application/json" } });
+}
+
+async function publicReviews(env) {
+  const all = await loadReviews(env);
+  return json(all.map(({ names, place, stars, text }) => ({ names, place, stars, text })), 200, { "Cache-Control": "public, max-age=60" });
+}
+
+// Shown on the homepage with textContent, so this only trims and limits
+function cleanReview(body) {
+  const line = (v, max) => String(v || "").replace(/\s+/g, " ").trim().slice(0, max);
+  const review = {
+    names: line(body?.names, 60),
+    place: line(body?.place, 60),
+    stars: Math.round(Number(body?.stars)),
+    text: String(body?.text || "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, 500),
+  };
+  if (!review.names) return "Please write your names";
+  if (!(review.stars >= 1 && review.stars <= 5)) return "Please choose the stars";
+  if (review.text.length < 10) return "Please write a few words";
+  return review;
+}
+
+// A client's own review, from their photo page: GET shows it, POST sends a new one for approval
+async function clientReview(req, env, d) {
+  if (req.method === "POST") {
+    const review = cleanReview(await req.json().catch(() => null));
+    if (typeof review === "string") return json({ error: review }, 400);
+    await env.BUCKET.put(waitingKey(d.id), JSON.stringify({ id: d.id, client: d.client, at: Date.now(), ...review }), { httpMetadata: { contentType: "application/json" } });
+    return json({ state: "waiting", review });
+  }
+  const waiting = await env.BUCKET.get(waitingKey(d.id));
+  if (waiting) return json({ state: "waiting", review: await waiting.json() }, 200, { "Cache-Control": "no-store" });
+  const live = (await loadReviews(env)).find(r => r.id === d.id);
+  return json(live ? { state: "live", review: live } : { state: "none" }, 200, { "Cache-Control": "no-store" });
+}
+
+async function adminReviews(req, env, url) {
+  const m = url.pathname.match(/^\/api\/reviews\/(list|[a-z0-9-]+\/(approve|reject|remove))$/);
+  if (!m) return json({ error: "Not found" }, 404);
+  const live = await loadReviews(env);
+  if (m[1] === "list" && req.method === "GET") {
+    const listed = await env.BUCKET.list({ prefix: "reviews/waiting/" });
+    const waiting = await Promise.all(listed.objects.map(o => env.BUCKET.get(o.key).then(obj => obj?.json())));
+    return json({ waiting: waiting.filter(Boolean).sort((a, b) => b.at - a.at), live }, 200, { "Cache-Control": "no-store" });
+  }
+  if (req.method !== "POST") return json({ error: "Not found" }, 404);
+
+  const id = m[1].split("/")[0];
+  const action = m[2];
+  if (action === "remove") {
+    await saveReviews(env, live.filter(r => r.id !== id));
+    return json({ ok: true });
+  }
+  const obj = await env.BUCKET.get(waitingKey(id));
+  if (!obj) return json({ error: "This review is gone. Refresh the page." }, 404);
+  if (action === "approve") {
+    const review = await obj.json();
+    // A couple has one review on the site; a new one from them replaces the old one
+    await saveReviews(env, [review, ...live.filter(r => r.id !== id)]);
+  }
+  await env.BUCKET.delete(waitingKey(id));
+  return json({ ok: true });
+}
+
 // ---------- Client photos ----------
 
 async function loadDeliveries(env) {
@@ -231,13 +311,15 @@ async function clientUnlock(req, env, url) {
 }
 
 async function publicDelivery(req, env, url) {
-  const m = url.pathname.match(/^\/api\/d\/([a-z0-9-]+)(?:\/(file|thumb|faces)\/(\d+))?$/);
-  if (!m || (req.method !== "GET" && req.method !== "HEAD")) return json({ error: "Not found" }, 404);
+  const m = url.pathname.match(/^\/api\/d\/([a-z0-9-]+)(?:\/(file|thumb|faces)\/(\d+)|\/(review))?$/);
+  const reading = req.method === "GET" || req.method === "HEAD";
+  if (!m || !(reading || (m[4] && req.method === "POST"))) return json({ error: "Not found" }, 404);
   const [, id, action, index] = m;
   const d = (await loadDeliveries(env)).find(x => x.id === id);
   if (!d) return json({ error: "This link is not valid", closed: true }, 404);
   if (Date.now() > d.expiresAt) return json({ error: "This link has closed", closed: true }, 410);
   if (!(await hasSession(req, d, env))) return json({ error: "Password needed" }, 401);
+  if (m[4]) return clientReview(req, env, d);
 
   if (action === "faces") {
     const batch = +index < (d.faceBatches || 0) && await env.BUCKET.get(facesKey(id, +index));

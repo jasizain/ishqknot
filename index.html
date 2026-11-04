@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500&family=Italiana&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=23">
+  <link rel="stylesheet" href="styles.css?v=24">
 </head>
 <body>
 
@@ -107,6 +107,15 @@
 
       <div class="gallery" id="gallery"><!-- filled by script.js --></div>
       <div class="gallery-more"><button class="btn" id="gallery-more">View more photos</button></div>
+    </section>
+
+    <!-- Reviews: shown once the admin has approved one (filled by script.js) -->
+    <section class="reviews" id="reviews" hidden>
+      <div class="reviews-head">
+        <h2>What couples say</h2>
+        <a class="tab tab-light" href="/client-photos#review">Write a review <i>→</i></a>
+      </div>
+      <div class="reviews-strip"><div class="reviews-track" id="reviews-track"></div></div>
     </section>
 
     <!-- Packages -->
@@ -220,6 +229,6 @@
     <button class="lb-next" aria-label="Next">›</button>
   </div>
 
-  <script src="script.js?v=11"></script>
+  <script src="script.js?v=12"></script>
 </body>
 </html>

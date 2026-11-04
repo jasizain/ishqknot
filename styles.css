@@ -304,6 +304,23 @@ main > section { position: relative; z-index: 1; }
 .client-band p { margin-top: .7rem; max-width: 44ch; }
 .client-band .tab { flex: none; }
 
+/* ---------- Reviews ---------- */
+.reviews { margin-top: var(--gap); padding-block: clamp(3.5rem, 7vw, 6rem); background: var(--ink); color: var(--ground); position: relative; z-index: 1; overflow: hidden; }
+.reviews[hidden] { display: none; }
+.reviews-head { display: flex; align-items: center; justify-content: space-between; gap: 2rem; padding-left: var(--gutter); }
+.reviews h2 { font-size: var(--t-h3); }
+.reviews-head .tab { flex: none; }
+.reviews-strip { margin-top: clamp(2rem, 4vw, 3rem); }
+/* The cards are in the track twice, so sliding it half its width loops without a jump */
+.reviews-track { display: flex; width: max-content; animation: reviews-slide var(--loop, 60s) linear infinite; }
+.reviews-strip:hover .reviews-track { animation-play-state: paused; }
+@keyframes reviews-slide { to { transform: translateX(-50%); } }
+.review { flex: none; width: min(24rem, 80vw); margin-right: 1rem; padding: 1.8rem; border: 1px solid #444; display: flex; flex-direction: column; }
+.review-stars { letter-spacing: .15em; }
+.review p { margin-top: .9rem; color: #e6e6e6; white-space: pre-line; }
+.review cite { margin-top: auto; padding-top: 1.2rem; font-style: normal; font-size: var(--t-small); }
+.review cite small { display: block; color: #a8a8a8; font-size: var(--t-small); }
+
 /* ---------- Footer ---------- */
 .footer { background: var(--ink); color: var(--ground); padding: clamp(4.5rem, 8vw, 8rem) var(--gutter) 1.6rem; overflow: hidden; }
 .footer-name {
@@ -390,7 +407,7 @@ main > section { position: relative; z-index: 1; }
   .contact-photo { grid-column: 1 / -1; aspect-ratio: 16 / 9; }
 }
 @media (max-width: 620px) {
-  .client-band { flex-direction: column; align-items: flex-start; padding-right: 0; }
+  .client-band, .reviews-head { flex-direction: column; align-items: flex-start; padding-right: 0; }
   .footer-name { font-size: 8vw; line-height: 10vw; }
   .footer-row { flex-direction: column; align-items: center; text-align: center; }
   .contact-photo { display: none; }
@@ -409,6 +426,8 @@ main > section { position: relative; z-index: 1; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
   .reveal { opacity: 1; transform: none; }
+  .reviews-strip { overflow-x: auto; }
+  .reviews-track { padding-inline: var(--gutter); }
 }
 
 /* Hero on tablets and phones: the photo on top, the words under it */

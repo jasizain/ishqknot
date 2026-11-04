@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500&family=Italiana&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=23">
+  <link rel="stylesheet" href="/styles.css?v=24">
   <style>
     [hidden] { display: none !important; }
     body { min-height: 100svh; display: flex; flex-direction: column; background: var(--ground); }
@@ -21,8 +21,9 @@
     .dl-box > p, .dl-wide > p { margin-top: 1rem; max-width: 46ch; }
     .dl-form { margin-top: 2rem; display: grid; gap: 1rem; }
     .dl-form label { display: grid; gap: .3rem; color: var(--muted); font-size: var(--t-small); }
-    .dl-form input { font: inherit; font-size: var(--t-body); color: var(--ink); padding: .6rem 0; border: 0; border-bottom: 1px solid var(--muted); background: none; border-radius: 0; }
-    .dl-form input:focus { outline: 0; border-bottom: 2px solid var(--ink); padding-bottom: calc(.6rem - 1px); }
+    .dl-form input, .dl-form textarea { font: inherit; font-size: var(--t-body); color: var(--ink); padding: .6rem 0; border: 0; border-bottom: 1px solid var(--muted); background: none; border-radius: 0; }
+    .dl-form textarea { resize: vertical; }
+    .dl-form input:focus, .dl-form textarea:focus { outline: 0; border-bottom: 2px solid var(--ink); padding-bottom: calc(.6rem - 1px); }
     .dl-form .btn { justify-self: start; }
     .dl-error { color: #a3242f; min-height: 1.5em; font-size: var(--t-small); }
 
@@ -60,6 +61,14 @@
     .dl-step { background: none; border: 0; color: inherit; font: inherit; font-size: 1.6rem; width: 48px; height: 48px; cursor: pointer; }
     .dl-view .btn { background: #fff; color: var(--ink); }
     .dl-foot { background: var(--ink); color: var(--ground); padding: 1.6rem var(--gutter); text-align: center; font-family: var(--display); font-size: 1.5rem; }
+    .dl-review { width: min(100% - 2rem, 34rem); max-height: calc(100% - 2rem); margin: auto; padding: clamp(1.4rem, 4vw, 2.4rem); border: 0; background: var(--ground); color: var(--ink); }
+    .dl-review::backdrop { background: rgba(0, 0, 0, .6); }
+    .dl-review h2 { font-family: var(--display); font-weight: 400; font-size: 2.2rem; line-height: 1.1; }
+    .dl-review .dl-form { margin-top: 1.2rem; }
+    .rv-stars { display: flex; gap: .2rem; margin-top: .2rem; }
+    .rv-stars button { width: 44px; height: 44px; border: 0; background: none; font-size: 1.9rem; line-height: 1; color: #bdbdbd; cursor: pointer; padding: 0; }
+    .rv-stars button.on { color: var(--ink); }
+    .rv-btns { display: flex; align-items: center; gap: 1.4rem; }
     @media (max-width: 620px) {
       .dl-grid { grid-template-columns: repeat(2, 1fr); gap: .35rem; }
       .dl-files li { flex-direction: column; align-items: flex-start; }
@@ -90,6 +99,7 @@
         <button class="btn" type="button" id="dl-save-all"></button>
         <button class="btn dl-outline" type="button" id="dl-find" hidden>Find my photos with AI</button>
         <input type="file" id="dl-selfie" accept="image/*" hidden>
+        <button class="btn dl-outline" type="button" id="dl-review-open">Write a review</button>
       </div>
       <p class="dl-note dl-find-note" id="dl-find-note" hidden></p>
       <div class="dl-tools" id="dl-tools">
@@ -114,6 +124,22 @@
   </main>
 
   <footer class="dl-foot">ISHQ KNOT</footer>
+
+  <dialog class="dl-review" id="dl-review">
+    <h2>Write a review</h2>
+    <p class="dl-note" id="rv-state" style="margin-top:.6rem"></p>
+    <form class="dl-form" id="rv-form">
+      <label>Your names<input type="text" id="rv-names" maxlength="60" required></label>
+      <label>Wedding place and month<input type="text" id="rv-place" maxlength="60" placeholder="e.g. Kochi, May 2026"></label>
+      <div><span class="dl-note">Stars</span><div class="rv-stars" id="rv-stars" role="group" aria-label="Stars"></div></div>
+      <label>Your review<textarea id="rv-text" rows="5" maxlength="500" placeholder="How was your day with us?" required></textarea></label>
+      <p class="dl-error" id="rv-error"></p>
+      <div class="rv-btns">
+        <button class="btn" type="submit" id="rv-send">Send review</button>
+        <button class="dl-text-btn" type="button" id="rv-close">Close</button>
+      </div>
+    </form>
+  </dialog>
 
   <div class="dl-view" id="dl-cam" hidden style="grid-template-rows: 1fr auto auto">
     <div class="dl-view-stage"><video id="dl-cam-video" autoplay playsinline muted></video></div>
@@ -157,6 +183,9 @@ let faceBatches = 0, faceCodes = null;
 let camera = null; // the live video while the camera window is open
 const picked = new Set();
 let viewing = 0;
+let client = "";
+let stars = 0;
+const wantsReview = location.hash === "#review";
 
 function show(name) {
   ["lock", "ready", "closed"].forEach(s => $(`dl-${s}`).hidden = s !== name);
@@ -386,6 +415,7 @@ function showGallery(d) {
   allPhotos = allFiles.filter(f => f.photo);
   faceBatches = d.faces;
   const others = allFiles.filter(f => !f.photo);
+  client = d.client;
   $("dl-client").textContent = d.client;
   $("dl-until").textContent = d.files.length
     ? `Choose the photos you love and download them by ${longDate(d.date)}. After that this link closes.`
@@ -400,7 +430,62 @@ function showGallery(d) {
     element("div", { className: "dl-name", textContent: f.name }, element("small", { textContent: size(f.size) })),
     element("a", { className: "btn", href: `${api}/file/${f.i}`, textContent: "Download" }))));
   show("ready");
+  if (wantsReview && allFiles.length) openReview();
 }
+
+// ---------- Review ----------
+const REVIEW_NOTES = {
+  none: "Tell other couples about your day. We read every review before it shows on our website.",
+  waiting: "Thank you! We will read your review and put it on our website. You can still change it here.",
+  live: "Your review is on our website. If you change it, we read it again before it shows.",
+};
+
+function setStars(n) {
+  stars = n;
+  [...$("rv-stars").children].forEach((b, i) => {
+    b.classList.toggle("on", i < n);
+    b.setAttribute("aria-pressed", i < n);
+  });
+}
+
+for (let n = 1; n <= 5; n++) {
+  $("rv-stars").append(element("button", { type: "button", textContent: "★", ariaLabel: `${n} ${n > 1 ? "stars" : "star"}`, onclick: () => setStars(n) }));
+}
+
+async function openReview() {
+  $("rv-error").textContent = "";
+  $("rv-state").textContent = REVIEW_NOTES.none;
+  $("rv-names").value ||= client;
+  $("dl-review").showModal();
+  const res = await fetch(`${api}/review`).catch(() => null);
+  const data = res?.ok ? await res.json() : { state: "none" };
+  $("rv-state").textContent = REVIEW_NOTES[data.state];
+  if (data.review) {
+    $("rv-names").value = data.review.names;
+    $("rv-place").value = data.review.place;
+    $("rv-text").value = data.review.text;
+    setStars(data.review.stars);
+  }
+}
+
+$("dl-review-open").addEventListener("click", openReview);
+$("rv-close").addEventListener("click", () => $("dl-review").close());
+$("rv-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!stars) return $("rv-error").textContent = "Please choose the stars.";
+  $("rv-error").textContent = "";
+  $("rv-send").disabled = true;
+  const res = await fetch(`${api}/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ names: $("rv-names").value, place: $("rv-place").value, stars, text: $("rv-text").value }),
+  }).catch(() => null);
+  $("rv-send").disabled = false;
+  const data = await res?.json().catch(() => ({})) || {};
+  if (!res?.ok) return $("rv-error").textContent = data.error || "Something went wrong. Please try again.";
+  $("rv-state").textContent = REVIEW_NOTES.waiting;
+  $("rv-send").textContent = "Send again";
+});
 
 function openView(n) {
   viewing = (n + photos.length) % photos.length;
@@ -449,6 +534,7 @@ $("dl-get").addEventListener("click", () => saveFiles(allFiles.filter(f => picke
 $("dl-save-all").addEventListener("click", () => saveFiles(onScreen()));
 
 async function load() {
+  if (wantsReview) $("dl-lock").querySelector("p").textContent = "Enter your photo password to write a review.";
   if (!id) return show("lock");
   const res = await fetch(api);
   if (res.ok) return showGallery(await res.json());
@@ -464,7 +550,7 @@ $("dl-form").addEventListener("submit", async e => {
     body: JSON.stringify({ password: $("dl-password").value.trim() }),
   });
   const data = await res.json().catch(() => ({}));
-  if (res.ok) return location.assign(`/d/${data.id}`);
+  if (res.ok) return location.assign(`/d/${data.id}${location.hash}`);
   if (data.closed) return show("closed");
   $("dl-error").textContent = data.error || "Something went wrong. Please try again.";
 });

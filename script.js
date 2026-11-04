@@ -454,4 +454,33 @@ document.getElementById("contact-form").addEventListener("submit", e => {
   window.open(`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
 });
 
+// Reviews the admin approved slide past in a loop. With none yet, the section stays hidden.
+const REVIEW_SPEED = 40; // px a second
+
+function reviewCard(r, copy) {
+  const card = document.createElement("article");
+  card.className = "review";
+  if (copy) card.setAttribute("aria-hidden", "true");
+  const stars = Object.assign(document.createElement("div"), { className: "review-stars", textContent: "★".repeat(r.stars) + "☆".repeat(5 - r.stars) });
+  stars.setAttribute("aria-label", `${r.stars} of 5 stars`);
+  const cite = Object.assign(document.createElement("cite"), { textContent: r.names });
+  if (r.place) cite.append(Object.assign(document.createElement("small"), { textContent: r.place }));
+  card.append(stars, Object.assign(document.createElement("p"), { textContent: r.text }), cite);
+  return card;
+}
+
+fetch("/api/reviews").then(r => r.ok ? r.json() : []).then(list => {
+  if (!list.length) return;
+  const track = document.getElementById("reviews-track");
+  track.append(...list.map(r => reviewCard(r)));
+  document.getElementById("reviews").hidden = false;
+  if (calm) return;
+  // Repeat the reviews until one round is wider than the screen, then add the round again
+  const wide = Math.max(innerWidth, screen.width);
+  while (track.scrollWidth < wide) track.append(...list.map(r => reviewCard(r, true)));
+  const round = track.children.length;
+  for (let i = 0; i < round; i++) track.append(reviewCard(list[i % list.length], true));
+  track.style.setProperty("--loop", `${track.scrollWidth / 2 / REVIEW_SPEED}s`);
+}).catch(() => {});
+
 document.getElementById("year").textContent = new Date().getFullYear();
