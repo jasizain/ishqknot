@@ -71,13 +71,14 @@ async function loadPhotos(req, env, list) {
   return res.json();
 }
 
-// The homepage comes with the current cover photos already in it, so the first photo starts
-// loading at once and no old or placeholder photo shows first. script.js reads the list
-// from #hero-data and adds the other slides.
+// The homepage comes with the current cover and About photos already in it, so the first
+// photo starts loading at once and no old or placeholder photo shows first. script.js reads
+// the cover list from #hero-data and adds the other slides.
 const htmlAttr = s => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 async function homePage(req, env) {
-  const [res, hero] = await Promise.all([env.ASSETS.fetch(new URL("/", req.url)), loadPhotos(req, env, "hero.json").catch(() => [])]);
+  const [res, hero, about] = await Promise.all([env.ASSETS.fetch(new URL("/", req.url)),
+    ...["hero.json", "about.json"].map(list => loadPhotos(req, env, list).catch(() => []))]);
   let html = await res.text();
   const first = hero[0];
   if (first) {
@@ -88,6 +89,10 @@ async function homePage(req, env) {
             <img src="${src}" alt="${htmlAttr(first.title)}" style="object-position: ${htmlAttr(first.pos || "center 50%")}" fetchpriority="high" onload="this.classList.add(&quot;in&quot;)">
           </div>`);
   }
+  html = html.replace(/<!-- about-(\d) -->/g, (marker, i) => {
+    const p = about[+i];
+    return p ? `<img src="${htmlAttr(p.src)}" alt="${htmlAttr(p.title)}" loading="lazy" style="object-position: ${htmlAttr(p.pos || "center 50%")}">` : marker;
+  });
   html = html.replace("<!-- hero-data -->", () => `<script type="application/json" id="hero-data">${JSON.stringify(hero).replace(/</g, "\\u003c")}</script>`);
   return new Response(html, { status: res.status, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
 }

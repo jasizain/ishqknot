@@ -245,20 +245,18 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowRight") step(1);
 });
 
-// About photos are managed from admin.html (/api/about, default about.json): eight places,
-// four in each group, already written in index.html with the defaults.
-fetch("/api/about").then(r => r.ok ? r.json() : Promise.reject())
-  .catch(() => fetch("about.json").then(r => r.json()))
-  .then(list => {
-    document.querySelectorAll(".about .collage img").forEach((img, i) => {
-      const p = list[i];
-      if (!p) return;
-      if (img.getAttribute("src") !== p.src) img.src = p.src;
-      img.alt = p.title;
-      img.style.objectPosition = p.pos || "center 50%";
-    });
-  })
-  .catch(() => {});
+// About photos are managed from admin.html (/api/about): eight places, four in each group.
+// src/worker.js writes them into the page; this fills in any it could not.
+const aboutFigures = [...document.querySelectorAll(".about .collage figure")];
+if (aboutFigures.some(fig => !fig.querySelector("img"))) {
+  fetch("/api/about").then(r => r.ok ? r.json() : []).then(list => aboutFigures.forEach((fig, i) => {
+    const p = list[i];
+    if (!p || fig.querySelector("img")) return;
+    const img = Object.assign(document.createElement("img"), { src: p.src, alt: p.title, loading: "lazy" });
+    img.style.objectPosition = p.pos || "center 50%";
+    fig.append(img);
+  })).catch(() => {});
+}
 
 // Hero slideshow — cover photos are managed from admin.html. src/worker.js writes the first
 // photo and the whole list (#hero-data) into the page; the other slides are added here.
