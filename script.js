@@ -245,6 +245,21 @@ document.addEventListener("keydown", e => {
   if (e.key === "ArrowRight") step(1);
 });
 
+// About photos are managed from admin.html (/api/about, default about.json): eight places,
+// four in each group, already written in index.html with the defaults.
+fetch("/api/about").then(r => r.ok ? r.json() : Promise.reject())
+  .catch(() => fetch("about.json").then(r => r.json()))
+  .then(list => {
+    document.querySelectorAll(".about .collage img").forEach((img, i) => {
+      const p = list[i];
+      if (!p) return;
+      if (img.getAttribute("src") !== p.src) img.src = p.src;
+      img.alt = p.title;
+      img.style.objectPosition = p.pos || "center 50%";
+    });
+  })
+  .catch(() => {});
+
 // Hero slideshow — cover photos are managed from admin.html (/api/hero, default hero.json).
 // The slide written in index.html shows first; the rest are added once the list loads.
 const heroBox = document.querySelector(".hero-slides");

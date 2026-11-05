@@ -1,9 +1,11 @@
 // ISHQ KNOT Worker — serves the static site, plus a small API for the photo admin (admin.html).
-// Two photo lists: the portfolio (/api/photos) and the homepage cover slideshow (/api/hero).
+// Three photo lists: the portfolio (/api/photos), the homepage cover slideshow (/api/hero) and the
+// two groups of four in the About section (/api/about).
 // Each lives in R2 under the same name as its default list (a static asset), which is
 // used until the admin saves once. Uploaded photos live in R2 under media/.
 
-const LISTS = { "/api/photos": "photos.json", "/api/hero": "hero.json" };
+const LISTS = { "/api/photos": "photos.json", "/api/hero": "hero.json", "/api/about": "about.json" };
+const ABOUT_COUNT = 8; // the About layout has a place for each
 const CATEGORIES = ["couples", "brides", "moments", "celebrations", "prewedding"];
 const IMAGE_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 const MAX_UPLOAD = 15 * 1024 * 1024;
@@ -89,6 +91,7 @@ async function savePhotos(req, env, list) {
     if (/^center \d{1,3}%$/.test(p.pos || "") && p.pos !== "center 50%") photo.pos = p.pos;
     photos.push(photo);
   }
+  if (list === "about.json" && photos.length !== ABOUT_COUNT) return json({ error: `The About section needs exactly ${ABOUT_COUNT} photos` }, 400);
 
   // Delete uploaded files that are no longer in this list or the other one
   const others = await Promise.all(Object.values(LISTS).filter(l => l !== list).map(l => loadPhotos(req, env, l)));

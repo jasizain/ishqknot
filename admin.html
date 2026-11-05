@@ -61,6 +61,7 @@
 
     /* Photo cards */
     .grid.hero { --ratio: 3 / 4; }
+    .grid.about { --ratio: 1 / 1; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 1rem; }
     .card { background: var(--surface); border: 1px solid var(--line); display: flex; flex-direction: column; }
     .thumb { position: relative; aspect-ratio: var(--ratio, 4 / 5); overflow: hidden; background: var(--line); }
@@ -140,6 +141,7 @@
       <nav class="tabs" role="tablist">
         <button class="tab active" data-tab="hero">Cover photos<span class="count" id="count-hero"></span></button>
         <button class="tab" data-tab="portfolio">Portfolio<span class="count" id="count-portfolio"></span></button>
+        <button class="tab" data-tab="about">About photos<span class="count" id="count-about"></span></button>
         <button class="tab" data-tab="deliveries">Client photos<span class="count" id="count-deliveries"></span></button>
         <button class="tab" data-tab="reviews">Reviews<span class="count" id="count-reviews"></span></button>
       </nav>
@@ -220,17 +222,20 @@
 const CATEGORIES = { couples: "Couples", brides: "Brides", moments: "Moments", celebrations: "Celebrations", prewedding: "Pre-Wedding" };
 const MAX_SIDE = 2400; // big phone photos are resized before upload
 
-// Two lists, one per tab. Cover photos are the homepage slideshow; they have no category.
+// One list per tab. Cover and About photos have no category. About has a fixed place for each
+// photo, so it can only be replaced and reordered.
 const TABS = {
   hero: { api: "/api/hero", heading: "Cover photos",
     help: "The big slideshow at the top of the homepage. Portrait photos look best. Add, replace, reorder or remove, then press <strong>Save changes</strong>." },
   portfolio: { api: "/api/photos", heading: "Portfolio photos",
     help: "The Portfolio gallery. Add, replace, reorder or remove photos, then press <strong>Save changes</strong>. Photos appear on the site in this order." },
+  about: { api: "/api/about", heading: "About photos", fixed: true,
+    help: "The two groups of photos in the About section of the homepage. Photos 1–4 are the first group, 5–8 the second (next to the numbers); 3 and 6 show a little smaller. Press <strong>Replace</strong> to change one, then <strong>Save changes</strong>." },
 };
 
 let password = sessionStorage.getItem("adminPassword") || "";
 let tab = "hero";
-const lists = { hero: [], portfolio: [] };
+const lists = { hero: [], portfolio: [], about: [] };
 const changed = new Set(); // tabs with unsaved edits
 let photos = lists[tab];
 let dirty = false;
@@ -290,8 +295,8 @@ function logout() {
 async function start() {
   $("login").hidden = true;
   $("admin").hidden = false;
-  const [hero, portfolio] = await Promise.all(Object.values(TABS).map(t => fetch(t.api).then(r => r.json())));
-  Object.assign(lists, { hero, portfolio });
+  const loaded = await Promise.all(Object.values(TABS).map(t => fetch(t.api).then(r => r.json())));
+  Object.keys(TABS).forEach((name, i) => lists[name] = loaded[i]);
   newSrcs = new Set();
   showTab(tab);
   setDirty(false);
@@ -311,8 +316,11 @@ function showTab(name) {
   photos = lists[tab];
   $("heading").textContent = TABS[tab].heading;
   $("help").innerHTML = TABS[tab].help;
-  $("add-category").hidden = tab === "hero";
+  $("add-category").hidden = tab !== "portfolio";
+  document.querySelector("#photos-view .add").hidden = TABS[tab].fixed;
+  $("drop").hidden = TABS[tab].fixed;
   grid.classList.toggle("hero", tab === "hero");
+  grid.classList.toggle("about", tab === "about");
   render();
 }
 document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => showTab(t.dataset.tab)));
@@ -341,7 +349,7 @@ function render() {
         <button data-act="up" title="Move earlier" ${i === 0 ? "disabled" : ""}>←</button>
         <button data-act="down" title="Move later" ${i === photos.length - 1 ? "disabled" : ""}>→</button>
         <button data-act="replace" title="Replace photo">Replace</button>
-        <button data-act="delete" class="del" title="Remove photo">Delete</button>
+        ${TABS[tab].fixed ? "" : `<button data-act="delete" class="del" title="Remove photo">Delete</button>`}
       </div>
     </article>`).join("");
 }
@@ -451,7 +459,7 @@ $("replace-input").addEventListener("change", async e => {
 const drop = $("drop");
 ["dragenter", "dragover"].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
 ["dragleave", "drop"].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
-document.addEventListener("drop", e => { if (!$("admin").hidden && tab !== "deliveries") addFiles(e.dataTransfer.files); });
+document.addEventListener("drop", e => { if (!$("admin").hidden && tab in TABS && !TABS[tab].fixed) addFiles(e.dataTransfer.files); });
 
 // ---------- Save ----------
 $("save").addEventListener("click", async () => {
