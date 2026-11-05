@@ -260,8 +260,8 @@ fetch("/api/about").then(r => r.ok ? r.json() : Promise.reject())
   })
   .catch(() => {});
 
-// Hero slideshow — cover photos are managed from admin.html (/api/hero, default hero.json).
-// The slide written in index.html shows first; the rest are added once the list loads.
+// Hero slideshow — cover photos are managed from admin.html. src/worker.js writes the first
+// photo and the whole list (#hero-data) into the page; the other slides are added here.
 const heroBox = document.querySelector(".hero-slides");
 const heroPanels = [...heroBox.querySelectorAll(".hero-panel")];
 let heroCount = 0, slideIdx = 0, heroTimer;
@@ -274,37 +274,49 @@ function showSlide(i) {
   });
 }
 
+// A slide only comes up once its photo has loaded, so a slow phone never sees an empty grey frame
 function startSlides() {
   clearInterval(heroTimer);
-  if (heroCount > 1) heroTimer = setInterval(() => showSlide((slideIdx + 1) % heroCount), 6000);
+  if (heroCount < 2) return;
+  heroTimer = setInterval(() => {
+    const next = (slideIdx + 1) % heroCount;
+    if (heroPanels.every(panel => panel.querySelector(`.hero-slide[data-i="${(next + heroPanels.indexOf(panel)) % heroCount}"] img`)?.complete)) showSlide(next);
+  }, 6000);
 }
 
-fetch("/api/hero").then(r => r.ok ? r.json() : Promise.reject())
-  .catch(() => fetch("hero.json").then(r => r.json()))
-  .then(list => {
-    if (!list.length) return;
-    heroCount = list.length;
-    heroBox.classList.toggle("single", heroCount < 2);
-    heroPanels.forEach((panel, side) => {
-      const first = panel.querySelector(".hero-slide");
-      list.forEach((h, i) => {
-        const pos = h.pos || "center 50%";
-        if (i === side % heroCount && first.querySelector("img").getAttribute("src") === h.src) {
-          first.dataset.i = i;
-          first.querySelector("img").style.objectPosition = pos;
-          return;
-        }
-        panel.insertAdjacentHTML("beforeend", `
-          <div class="hero-slide" data-i="${i}">
-            <img src="${h.src}" alt="${h.title}" style="object-position: ${pos}" loading="lazy">
-          </div>`);
-      });
-      if (!("i" in first.dataset)) first.remove();
+function buildSlides(list) {
+  if (!list.length) return;
+  heroCount = list.length;
+  heroBox.classList.toggle("single", heroCount < 2);
+  // The other photos wait for the first one, so they don't share a slow connection with it
+  const first = heroBox.querySelector(".hero-slide img");
+  if (first && !first.complete) {
+    first.addEventListener("load", () => buildSlides(list), { once: true });
+    first.addEventListener("error", () => buildSlides(list), { once: true });
+    return;
+  }
+  heroPanels.forEach((panel, side) => {
+    list.forEach((h, i) => {
+      if (panel.querySelector(`.hero-slide[data-i="${i}"]`)) return; // the one already in the page
+      const img = Object.assign(document.createElement("img"), { src: h.src, alt: h.title, onload: () => img.classList.add("in") });
+      img.style.objectPosition = h.pos || "center 50%";
+      if (i !== side) img.fetchPriority = "low";
+      const slide = Object.assign(document.createElement("div"), { className: "hero-slide" });
+      slide.dataset.i = i;
+      slide.append(img);
+      panel.append(slide);
     });
-    showSlide(0);
-    startSlides();
-  })
-  .catch(() => {});
+  });
+  showSlide(0);
+  startSlides();
+}
+
+// A photo that finished loading before this script ran has already missed its onload
+heroBox.querySelectorAll("img").forEach(img => { if (img.complete && img.naturalWidth) img.classList.add("in"); });
+
+const heroData = document.getElementById("hero-data");
+if (heroData) buildSlides(JSON.parse(heroData.textContent));
+else fetch("/api/hero").then(r => r.ok ? r.json() : []).then(buildSlides).catch(() => {});
 
 // Nav: background on scroll + mobile menu
 const nav = document.getElementById("nav");

@@ -104,17 +104,20 @@ main > section { position: relative; z-index: 1; }
 .hero-panel::after { content: ""; position: absolute; inset: 0 0 auto; height: 24%; background: linear-gradient(to bottom, rgba(0, 0, 0, .5), transparent); }
 .hero-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 1.4s ease; overflow: hidden; }
 .hero-slide.active { opacity: 1; }
+/* Each photo fades in once it has loaded, over the plain grey of .hero-slides */
 .hero-slide img {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-  filter: var(--photo);
-  transform: scale(1.06); transition: transform 7s ease;
+  filter: var(--photo); opacity: 0;
+  transform: scale(1.06); transition: transform 7s ease, opacity .6s ease;
 }
+.hero-slide img.in { opacity: 1; }
 .hero-slide.active img { transform: scale(1); }
 
 .hero-content { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 5rem var(--gutter) 3rem; }
-.hero h1 span { display: block; white-space: nowrap; font-size: clamp(2.4rem, 4.8vw, 5.4rem); line-height: 1.06; animation: rise 1.1s var(--ease) both; }
-.hero-sub { max-width: 36ch; margin-top: 1.5rem; animation: rise 1.1s .12s var(--ease) both; }
-.hero-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .7rem; margin-top: 1.7rem; animation: rise 1.1s .24s var(--ease) both; }
+/* The words move up into place but are never see-through, so the buttons never look disabled */
+.hero h1 span { display: block; white-space: nowrap; font-size: clamp(2.4rem, 4.8vw, 5.4rem); line-height: 1.06; animation: lift 1.1s var(--ease) both; }
+.hero-sub { max-width: 36ch; margin-top: 1.5rem; animation: lift 1.1s .12s var(--ease) both; }
+.hero-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .7rem; margin-top: 1.7rem; animation: lift 1.1s .24s var(--ease) both; }
 .hero-actions .tab { border-radius: 99px; padding: .9rem 1.5rem; }
 .hero-actions .tab-light { background: none; box-shadow: inset 0 0 0 1px var(--ink); }
 .hero-actions .tab-dark:hover { background: #3a3a3a; color: #fff; }
@@ -131,6 +134,7 @@ main > section { position: relative; z-index: 1; }
 .tab-dark:hover { background: #fff; color: var(--ink); }
 .tab-light:hover { background: var(--ink); color: #fff; }
 
+@keyframes lift { from { transform: translateY(26px); } to { transform: none; } }
 @keyframes rise { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
 
 /* ---------- Sections ---------- */

@@ -8,7 +8,7 @@
   "assets": {
     "directory": "./",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/media/*", "/d/*", "/client-photos"]
+    "run_worker_first": ["/", "/api/*", "/media/*", "/d/*", "/client-photos"]
   },
   // Deletes client photos a week after their last date (src/worker.js scheduled)
   "triggers": { "crons": ["30 20 * * *"] },

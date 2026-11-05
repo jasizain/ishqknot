@@ -32,6 +32,7 @@ export default {
     const path = url.pathname;
 
     try {
+      if (path === "/" && req.method === "GET") return await homePage(req, env);
       if ((path === "/client-photos" || /^\/d\/[a-z0-9-]+\/?$/.test(path)) && req.method === "GET") return clientPage(req, env);
       if (path === "/api/client/unlock" && req.method === "POST") return await clientUnlock(req, env, url);
       if (path.startsWith("/api/d/")) return await publicDelivery(req, env, url);
@@ -68,6 +69,27 @@ async function loadPhotos(req, env, list) {
   if (obj) return obj.json();
   const res = await env.ASSETS.fetch(new URL("/" + list, req.url));
   return res.json();
+}
+
+// The homepage comes with the current cover photos already in it, so the first photo starts
+// loading at once and no old or placeholder photo shows first. script.js reads the list
+// from #hero-data and adds the other slides.
+const htmlAttr = s => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+
+async function homePage(req, env) {
+  const [res, hero] = await Promise.all([env.ASSETS.fetch(new URL("/", req.url)), loadPhotos(req, env, "hero.json").catch(() => [])]);
+  let html = await res.text();
+  const first = hero[0];
+  if (first) {
+    const src = htmlAttr(first.src);
+    html = html
+      .replace("<!-- hero-preload -->", () => `<link rel="preload" as="image" href="${src}" fetchpriority="high">`)
+      .replace("<!-- hero-slide -->", () => `<div class="hero-slide active" data-i="0">
+            <img src="${src}" alt="${htmlAttr(first.title)}" style="object-position: ${htmlAttr(first.pos || "center 50%")}" fetchpriority="high" onload="this.classList.add(&quot;in&quot;)">
+          </div>`);
+  }
+  html = html.replace("<!-- hero-data -->", () => `<script type="application/json" id="hero-data">${JSON.stringify(hero).replace(/</g, "\\u003c")}</script>`);
+  return new Response(html, { status: res.status, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
 }
 
 async function getPhotos(req, env, list) {
